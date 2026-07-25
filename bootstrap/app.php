@@ -45,10 +45,14 @@ return Application::configure(basePath: dirname(__DIR__))
                 default => 500,
             };
 
+            $message = $status === 500 && ! config('app.debug')
+                ? 'Server Error'
+                : ($e->getMessage() ?: 'Server Error');
+
             return response()->json([
                 'error' => [
                     'code' => $status,
-                    'message' => $e->getMessage() ?: 'Server Error',
+                    'message' => $message,
                 ],
             ], $status);
         });

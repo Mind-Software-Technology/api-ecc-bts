@@ -13,6 +13,7 @@ use App\Models\Testimonial;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
 {
@@ -32,12 +33,18 @@ class DatabaseSeeder extends Seeder
             'email' => 'test@example.com',
         ]);
 
+        $adminPassword = env('ADMIN_SEED_PASSWORD', Str::random(16));
+
         User::factory()->create([
             'name' => 'Admin ECC-BTS',
             'email' => 'admin@ecc-bts.test',
-            'password' => 'password',
+            'password' => $adminPassword,
             'role' => 'admin',
         ]);
+
+        if (! env('ADMIN_SEED_PASSWORD')) {
+            $this->command?->warn("Admin password (generated): {$adminPassword}");
+        }
 
         $akademik = Category::create([
             'slug' => 'akademik', 'title' => 'Layanan Akademik',
