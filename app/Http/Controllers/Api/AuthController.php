@@ -109,6 +109,18 @@ class AuthController extends Controller
         return new UserResource($request->user());
     }
 
+    public function updateProfile(Request $request)
+    {
+        $data = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'phone' => 'nullable|string|max:30',
+        ]);
+
+        $request->user()->update($data);
+
+        return new UserResource($request->user());
+    }
+
     public function resendVerification(Request $request)
     {
         if ($request->user()->hasVerifiedEmail()) {

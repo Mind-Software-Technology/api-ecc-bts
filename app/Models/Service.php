@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'slug', 'category_id', 'sort_order', 'title', 'tagline', 'description', 'points',
     'icon', 'accent', 'image_url', 'image_alt', 'price', 'rating',
-    'reviews_count', 'badge', 'is_active',
+    'reviews_count', 'badge', 'is_active', 'requires_attachment',
 ])]
 class Service extends Model
 {
@@ -19,6 +19,7 @@ class Service extends Model
         return [
             'points' => 'array',
             'is_active' => 'boolean',
+            'requires_attachment' => 'boolean',
         ];
     }
 

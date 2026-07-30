@@ -3,9 +3,13 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\OrderItemResource;
 use App\Http\Resources\OrderResource;
 use App\Models\Order;
+use App\Notifications\OrderResultReady;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 
 class OrderController extends Controller
 {
@@ -35,5 +39,31 @@ class OrderController extends Controller
             ->firstOrFail();
 
         return new OrderResource($order);
+    }
+
+    public function uploadResult(Request $request, string $order_no, int $item)
+    {
+        $order = Order::where('order_no', $order_no)->with('items')->firstOrFail();
+        $orderItem = $order->items->firstWhere('id', $item);
+        abort_if(! $orderItem, 404);
+
+        $request->validate([
+            'result' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
+        ]);
+
+        if ($orderItem->result_path) {
+            Storage::disk('local')->delete($orderItem->result_path);
+        }
+
+        $file = $request->file('result');
+        $orderItem->update([
+            'result_path' => $file->store('order-results', 'local'),
+            'result_original_name' => $file->getClientOriginalName(),
+            'result_delivered_at' => now(),
+        ]);
+
+        Notification::route('mail', $order->guest_email)->notify(new OrderResultReady($order, $orderItem));
+
+        return new OrderItemResource($orderItem);
     }
 }

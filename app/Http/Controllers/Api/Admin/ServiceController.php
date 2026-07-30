@@ -60,6 +60,7 @@ class ServiceController extends Controller
             'reviews_count' => 'sometimes|integer|min:0',
             'badge' => 'nullable|string|max:20',
             'is_active' => 'sometimes|boolean',
+            'requires_attachment' => 'sometimes|boolean',
         ];
     }
 }
