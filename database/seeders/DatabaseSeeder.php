@@ -8,7 +8,6 @@ use App\Models\Faq;
 use App\Models\ProcessStep;
 use App\Models\Service;
 use App\Models\SiteConfig;
-use App\Models\Stat;
 use App\Models\Testimonial;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -106,16 +105,6 @@ class DatabaseSeeder extends Seeder
         ];
         foreach ($faqs as $i => $f) {
             Faq::create($f + ['sort_order' => $i + 1]);
-        }
-
-        $stats = [
-            ['value' => '500', 'suffix' => '+', 'label' => 'Klien Terlayani'],
-            ['value' => '1000', 'suffix' => '+', 'label' => 'Order Selesai'],
-            ['value' => '4.9', 'suffix' => '/5', 'label' => 'Rating Kepuasan'],
-            ['value' => '24', 'suffix' => '/7', 'label' => 'Respon Cepat'],
-        ];
-        foreach ($stats as $i => $s) {
-            Stat::create($s + ['sort_order' => $i + 1]);
         }
 
         $advantages = [

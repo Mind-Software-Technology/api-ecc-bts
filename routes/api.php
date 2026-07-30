@@ -11,7 +11,6 @@ use App\Http\Controllers\Api\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Api\Admin\ProcessStepController as AdminProcessStepController;
 use App\Http\Controllers\Api\Admin\ServiceController as AdminServiceController;
 use App\Http\Controllers\Api\Admin\SiteConfigController as AdminSiteConfigController;
-use App\Http\Controllers\Api\Admin\StatController as AdminStatController;
 use App\Http\Controllers\Api\Admin\TestimonialController as AdminTestimonialController;
 use App\Http\Controllers\Api\AdvantageController;
 use App\Http\Controllers\Api\AuthController;
@@ -87,7 +86,6 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     Route::apiResource('services', AdminServiceController::class)->except('show');
     Route::apiResource('testimonials', AdminTestimonialController::class)->except('show');
     Route::apiResource('faqs', AdminFaqController::class)->except('show');
-    Route::apiResource('stats', AdminStatController::class)->except('show');
     Route::apiResource('advantages', AdminAdvantageController::class)->except('show');
     Route::apiResource('process-steps', AdminProcessStepController::class)->except('show');
     Route::apiResource('events', AdminEventController::class)->except('show');
