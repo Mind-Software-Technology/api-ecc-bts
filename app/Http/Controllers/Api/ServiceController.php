@@ -26,10 +26,10 @@ class ServiceController extends Controller
                     'price_asc' => $query->orderBy('price'),
                     'price_desc' => $query->orderByDesc('price'),
                     'rating' => $query->orderByDesc('rating'),
-                    default => $query->orderBy('id'),
+                    default => $query->orderBy('sort_order')->orderBy('id'),
                 };
             }, function ($query) {
-                $query->orderBy('id');
+                $query->orderBy('sort_order')->orderBy('id');
             })
             ->paginate($limit, ['*'], 'page', (int) $request->query('page', 1));
 

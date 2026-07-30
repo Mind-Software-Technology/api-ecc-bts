@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
-    'slug', 'category_id', 'title', 'tagline', 'description', 'points',
+    'slug', 'category_id', 'sort_order', 'title', 'tagline', 'description', 'points',
     'icon', 'accent', 'image_url', 'image_alt', 'price', 'rating',
     'reviews_count', 'badge', 'is_active',
 ])]

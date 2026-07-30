@@ -17,6 +17,9 @@ class SiteConfigController extends Controller
             'contact_email' => 'nullable|email|max:255',
             'contact_phone' => 'nullable|string|max:30',
             'address' => 'nullable|string|max:255',
+            'bank_name' => 'nullable|string|max:100',
+            'bank_account_number' => 'nullable|string|max:60',
+            'bank_account_holder' => 'nullable|string|max:255',
             'social_links' => 'sometimes|array',
             'nav_items' => 'sometimes|array',
         ]);

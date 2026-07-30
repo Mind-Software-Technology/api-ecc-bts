@@ -11,7 +11,7 @@ class ServiceController extends Controller
 {
     public function index()
     {
-        $services = Service::with('category')->orderBy('id')->get();
+        $services = Service::with('category')->orderBy('sort_order')->orderBy('id')->get();
 
         return ['data' => ServiceResource::collection($services)];
     }
@@ -46,6 +46,7 @@ class ServiceController extends Controller
         return [
             'slug' => $prefix.'string|max:80|unique:services,slug'.($ignoreId ? ','.$ignoreId : ''),
             'category_id' => $prefix.'integer|exists:categories,id',
+            'sort_order' => 'sometimes|integer|min:0',
             'title' => $prefix.'string|max:160',
             'tagline' => $prefix.'string|max:240',
             'description' => $prefix.'string',

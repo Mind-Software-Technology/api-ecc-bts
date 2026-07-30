@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AboutStatsController;
 use App\Http\Controllers\Api\Admin\AdvantageController as AdminAdvantageController;
 use App\Http\Controllers\Api\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Api\Admin\ContactMessageController as AdminContactMessageController;
@@ -37,6 +38,7 @@ Route::get('services/{slug}', [ServiceController::class, 'show']);
 Route::get('testimonials', [TestimonialController::class, 'index']);
 Route::get('faqs', [FaqController::class, 'index']);
 Route::get('stats', [StatController::class, 'index']);
+Route::get('about-stats', [AboutStatsController::class, 'index']);
 Route::get('advantages', [AdvantageController::class, 'index']);
 Route::get('process-steps', [ProcessStepController::class, 'index']);
 
@@ -77,7 +79,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // Admin — butuh login + role admin
 Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function () {
-Route::apiResource('categories', AdminCategoryController::class)->except('show');
+    Route::apiResource('categories', AdminCategoryController::class)->except('show');
     Route::apiResource('services', AdminServiceController::class)->except('show');
     Route::apiResource('testimonials', AdminTestimonialController::class)->except('show');
     Route::apiResource('faqs', AdminFaqController::class)->except('show');
