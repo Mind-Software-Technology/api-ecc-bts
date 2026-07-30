@@ -60,6 +60,8 @@ Route::delete('cart/items/{id}', [CartItemController::class, 'destroy']);
 Route::post('orders', [OrderController::class, 'store']);
 Route::get('orders/{order_no}', [OrderController::class, 'show']);
 Route::get('orders', [OrderController::class, 'index'])->middleware('throttle:20,1');
+Route::get('orders/{order_no}/items/{item}/attachment', [OrderController::class, 'downloadAttachment']);
+Route::get('orders/{order_no}/items/{item}/result', [OrderController::class, 'downloadResult']);
 
 // Payments (Midtrans Core API)
 Route::post('payments', [PaymentController::class, 'store'])->middleware('throttle:10,1');
@@ -74,6 +76,7 @@ Route::post('auth/google', [AuthController::class, 'loginWithGoogle'])->middlewa
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('auth/logout', [AuthController::class, 'logout']);
     Route::get('auth/me', [AuthController::class, 'me']);
+    Route::patch('auth/me', [AuthController::class, 'updateProfile']);
     Route::post('auth/email/verification-notification', [AuthController::class, 'resendVerification'])->middleware('throttle:6,1');
     Route::get('auth/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
         ->middleware(['signed', 'throttle:6,1'])
@@ -93,6 +96,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
 
     Route::get('orders', [AdminOrderController::class, 'index']);
     Route::get('orders/{order_no}', [AdminOrderController::class, 'show']);
+    Route::post('orders/{order_no}/items/{item}/result', [AdminOrderController::class, 'uploadResult']);
     Route::get('payments', [AdminPaymentController::class, 'index']);
     Route::get('payments/{payment}', [AdminPaymentController::class, 'show']);
     Route::get('contact-messages', [AdminContactMessageController::class, 'index']);

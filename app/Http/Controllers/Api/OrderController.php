@@ -8,6 +8,7 @@ use App\Models\Cart;
 use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class OrderController extends Controller
 {
@@ -17,13 +18,23 @@ class OrderController extends Controller
         abort_if(! $cart || $cart->items()->count() === 0, 422, 'Cart is empty.');
 
         $user = $request->user();
-        $data = $request->validate([
+        $items = $cart->items()->with('service')->get();
+
+        $rules = [
             'guest_name' => $user ? 'nullable|string|max:255' : 'required|string|max:255',
             'guest_email' => $user ? 'nullable|email|max:255' : 'required|email|max:255',
             'guest_phone' => 'nullable|string|max:30',
-        ]);
+        ];
+        $attributes = [];
+        foreach ($items as $item) {
+            $key = "attachments.{$item->service_id}";
+            $rules[$key] = ($item->service->requires_attachment ? 'required|' : 'nullable|').'file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240';
+            $attributes[$key] = "file untuk layanan \"{$item->service->title}\"";
+        }
 
-        $order = DB::transaction(function () use ($cart, $user, $data) {
+        $data = $request->validate($rules, [], $attributes);
+
+        $order = DB::transaction(function () use ($cart, $items, $user, $data, $request) {
             $order = Order::create([
                 'order_no' => $this->generateOrderNo(),
                 'user_id' => $user?->id,
@@ -36,17 +47,24 @@ class OrderController extends Controller
             ]);
 
             $subtotal = 0;
-            foreach ($cart->items()->with('service')->get() as $item) {
+            foreach ($items as $item) {
                 $lineTotal = $item->service->price * $item->qty;
                 $subtotal += $lineTotal;
 
-                $order->items()->create([
+                $orderItemData = [
                     'service_id' => $item->service_id,
                     'title_snapshot' => $item->service->title,
                     'price_snapshot' => $item->service->price,
                     'qty' => $item->qty,
                     'line_total' => $lineTotal,
-                ]);
+                ];
+
+                if ($file = $request->file("attachments.{$item->service_id}")) {
+                    $orderItemData['attachment_path'] = $file->store('order-attachments', 'local');
+                    $orderItemData['attachment_original_name'] = $file->getClientOriginalName();
+                }
+
+                $order->items()->create($orderItemData);
             }
 
             $order->update(['subtotal' => $subtotal, 'total' => $subtotal]);
@@ -56,6 +74,29 @@ class OrderController extends Controller
         });
 
         return new OrderResource($order->load('items'));
+    }
+
+    public function downloadAttachment(Request $request, string $order_no, int $item)
+    {
+        return $this->downloadOrderItemFile($request, $order_no, $item, 'attachment');
+    }
+
+    public function downloadResult(Request $request, string $order_no, int $item)
+    {
+        return $this->downloadOrderItemFile($request, $order_no, $item, 'result');
+    }
+
+    private function downloadOrderItemFile(Request $request, string $order_no, int $item, string $type)
+    {
+        $order = Order::findAccessibleOrFail($order_no, $request);
+        $orderItem = $order->items->firstWhere('id', $item);
+        abort_if(! $orderItem, 404);
+
+        $pathField = "{$type}_path";
+        $nameField = "{$type}_original_name";
+        abort_if(! $orderItem->$pathField, 404);
+
+        return Storage::disk('local')->download($orderItem->$pathField, $orderItem->$nameField);
     }
 
     public function show(Request $request, string $order_no)

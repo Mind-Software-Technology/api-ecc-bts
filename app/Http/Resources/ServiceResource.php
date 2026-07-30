@@ -28,6 +28,7 @@ class ServiceResource extends JsonResource
             'rating' => (float) $this->rating,
             'reviews_count' => $this->reviews_count,
             'badge' => $this->badge,
+            'requires_attachment' => $this->requires_attachment,
         ];
     }
 }

@@ -19,6 +19,11 @@ class OrderItemResource extends JsonResource
             'price_snapshot' => $this->price_snapshot,
             'qty' => $this->qty,
             'line_total' => $this->line_total,
+            'has_attachment' => $this->attachment_path !== null,
+            'attachment_original_name' => $this->attachment_original_name,
+            'has_result' => $this->result_path !== null,
+            'result_original_name' => $this->result_original_name,
+            'result_delivered_at' => $this->result_delivered_at?->toIso8601String(),
         ];
     }
 }
