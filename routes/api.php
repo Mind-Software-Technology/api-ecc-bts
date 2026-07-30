@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AboutStatsController;
 use App\Http\Controllers\Api\Admin\AdvantageController as AdminAdvantageController;
 use App\Http\Controllers\Api\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Api\Admin\ContactMessageController as AdminContactMessageController;
+use App\Http\Controllers\Api\Admin\EventController as AdminEventController;
 use App\Http\Controllers\Api\Admin\FaqController as AdminFaqController;
 use App\Http\Controllers\Api\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Api\Admin\PaymentController as AdminPaymentController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\CartItemController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ContactController;
+use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\FaqController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PaymentController;
@@ -43,6 +45,8 @@ Route::get('advantages', [AdvantageController::class, 'index']);
 Route::get('process-steps', [ProcessStepController::class, 'index']);
 
 Route::get('site-config', [SiteConfigController::class, 'show']);
+
+Route::get('events', [EventController::class, 'index']);
 
 Route::post('contact', [ContactController::class, 'store'])->middleware('throttle:10,1');
 
@@ -86,6 +90,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     Route::apiResource('stats', AdminStatController::class)->except('show');
     Route::apiResource('advantages', AdminAdvantageController::class)->except('show');
     Route::apiResource('process-steps', AdminProcessStepController::class)->except('show');
+    Route::apiResource('events', AdminEventController::class)->except('show');
     Route::put('site-config', [AdminSiteConfigController::class, 'update']);
 
     Route::get('orders', [AdminOrderController::class, 'index']);

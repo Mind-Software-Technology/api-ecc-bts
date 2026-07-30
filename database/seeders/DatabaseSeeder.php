@@ -149,6 +149,8 @@ class DatabaseSeeder extends Seeder
                 ['label' => 'Beranda', 'path' => '/'],
                 ['label' => 'Kategori', 'path' => '/kategori'],
                 ['label' => 'Produk', 'path' => '/produk'],
+                ['label' => 'Kegiatan', 'path' => '/kegiatan'],
+                ['label' => 'Tentang Kami', 'path' => '/tentang'],
                 ['label' => 'Kontak', 'path' => '/kontak'],
             ],
         ]);
