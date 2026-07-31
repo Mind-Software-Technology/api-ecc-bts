@@ -81,6 +81,25 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('auth/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
         ->middleware(['signed', 'throttle:6,1'])
         ->name('verification.verify');
+
+    // Cart, checkout & pembayaran kini wajib login — tidak ada lagi keranjang
+    // guest (harus pesan lewat akun; keranjang guest dulu tidak pernah
+    // digabung ke keranjang user saat login, jadi checkout-tanpa-login
+    // sengaja dihilangkan sepenuhnya, bukan cuma dikunci di halaman terakhir).
+    Route::get('cart', [CartController::class, 'show']);
+    Route::delete('cart', [CartController::class, 'clear']);
+    Route::post('cart/items', [CartItemController::class, 'store']);
+    Route::patch('cart/items/{id}', [CartItemController::class, 'update']);
+    Route::delete('cart/items/{id}', [CartItemController::class, 'destroy']);
+
+    Route::post('orders', [OrderController::class, 'store']);
+    Route::get('orders/{order_no}', [OrderController::class, 'show']);
+    Route::get('orders', [OrderController::class, 'index'])->middleware('throttle:20,1');
+    Route::get('orders/{order_no}/items/{item_id}/attachment', [OrderController::class, 'downloadAttachment']);
+
+    Route::post('payments', [PaymentController::class, 'store'])->middleware('throttle:10,1');
+    Route::get('payments/{order_no}/status', [PaymentController::class, 'status']);
+    Route::post('payments/{order_no}/cancel', [PaymentController::class, 'cancel']);
 });
 
 // Admin — butuh login + role admin

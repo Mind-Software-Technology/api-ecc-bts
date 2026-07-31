@@ -9,9 +9,16 @@ use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OrderController extends Controller
 {
+    /**
+     * Allowed attachment mime/extensions and max size (KB) — shared between
+     * the store() validation rule and the file-storage step below.
+     */
+    private const ATTACHMENT_RULES = 'required|file|mimes:pdf,doc,docx,xls,xlsx,zip|max:10240';
+
     public function store(Request $request)
     {
         $cart = Cart::forRequest($request);
@@ -37,10 +44,10 @@ class OrderController extends Controller
         $order = DB::transaction(function () use ($cart, $items, $user, $data, $request) {
             $order = Order::create([
                 'order_no' => $this->generateOrderNo(),
-                'user_id' => $user?->id,
-                'guest_name' => $user ? ($data['guest_name'] ?? $user->name) : $data['guest_name'],
-                'guest_email' => $user ? ($data['guest_email'] ?? $user->email) : $data['guest_email'],
-                'guest_phone' => $data['guest_phone'] ?? $user?->phone,
+                'user_id' => $user->id,
+                'guest_name' => $data['guest_name'],
+                'guest_email' => $user->email,
+                'guest_phone' => $data['guest_phone'],
                 'status' => 'pending',
                 'subtotal' => 0,
                 'total' => 0,
@@ -50,6 +57,9 @@ class OrderController extends Controller
             foreach ($items as $item) {
                 $lineTotal = $item->service->price * $item->qty;
                 $subtotal += $lineTotal;
+
+                $file = $request->file("attachments.{$item->service_id}");
+                $path = $file->store("attachments/{$order->order_no}", 'local');
 
                 $orderItemData = [
                     'service_id' => $item->service_id,
@@ -76,11 +86,7 @@ class OrderController extends Controller
         return new OrderResource($order->load('items'));
     }
 
-    public function downloadAttachment(Request $request, string $order_no, int $item)
-    {
-        return $this->downloadOrderItemFile($request, $order_no, $item, 'attachment');
-    }
-
+    
     public function downloadResult(Request $request, string $order_no, int $item)
     {
         return $this->downloadOrderItemFile($request, $order_no, $item, 'result');
@@ -104,19 +110,22 @@ class OrderController extends Controller
         return new OrderResource(Order::findAccessibleOrFail($order_no, $request));
     }
 
+    public function downloadAttachment(Request $request, string $order_no, int $item_id): StreamedResponse
+    {
+        $order = Order::findAccessibleOrFail($order_no, $request);
+        $item = $order->items()->whereKey($item_id)->firstOrFail();
+        abort_unless($item->attachment_path && Storage::disk('local')->exists($item->attachment_path), 404);
+
+        return Storage::disk('local')->download($item->attachment_path, $item->attachment_name);
+    }
+
     public function index(Request $request)
     {
         $limit = min((int) $request->query('limit', 20) ?: 20, 100);
         $page = (int) $request->query('page', 1);
 
-        if ($user = $request->user()) {
-            $query = Order::where('user_id', $user->id);
-        } else {
-            $email = $request->validate(['email' => 'required|email'])['email'];
-            $query = Order::whereNull('user_id')->where('guest_email', $email);
-        }
-
-        $orders = $query->latest()->paginate($limit, ['*'], 'page', $page);
+        $orders = Order::where('user_id', $request->user()->id)
+            ->latest()->paginate($limit, ['*'], 'page', $page);
 
         return [
             'data' => OrderResource::collection($orders->items()),
