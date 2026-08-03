@@ -1,0 +1,120 @@
+# Catatan Perbaikan Backend (belum diterapkan)
+
+Daftar bug & hal yang perlu diperbaiki/ditambahkan di backend, ditemukan lewat pengujian
+end-to-end dari sisi frontend. **Belum ada satupun dari perubahan ini yang diterapkan di kode** —
+semua sempat dicoba lalu di-revert supaya kerjaan backend tetap milik yang mengerjakan backend.
+Urutan dari yang paling kritis.
+
+## 1. Migration duplikat bikin seluruh test attachment gagal
+
+**File:** `database/migrations/2026_07_31_073712_add_attachment_to_order_items_table.php`
+
+Migration ini menambah kolom `attachment_path` + `attachment_name` ke `order_items` — padahal
+kolom `attachment_path` (dan `attachment_original_name`) **sudah** ditambahkan lebih dulu oleh
+`2026_07_30_135612_add_attachment_and_result_to_order_items_table.php`. Hasilnya: migration ini
+gagal dengan `duplicate column name: attachment_path` setiap kali database di-migrate dari nol
+(misalnya `RefreshDatabase` di test, atau `migrate:fresh`).
+
+**Sudah diverifikasi:** `php artisan test --filter=CartCheckoutTest` gagal 5/5 dengan error ini.
+
+**Saran:** hapus file migration ini (kolom yang benar-benar dipakai adalah
+`attachment_original_name`, bukan `attachment_name`).
+
+## 2. `OrderController::downloadAttachment()` baca kolom yang salah
+
+**File:** `app/Http/Controllers/Api/OrderController.php`
+
+```php
+return Storage::disk('local')->download($item->attachment_path, $item->attachment_name);
+```
+
+`store()` menyimpan nama file asli ke kolom `attachment_original_name`, bukan `attachment_name`
+(kolom `attachment_name` cuma ada gara-gara migration duplikat di poin #1, dan tidak pernah diisi).
+Akibatnya file hasil download attachment selalu pakai nama yang salah/kosong.
+
+**Saran:** ganti jadi `$item->attachment_original_name`. Ini otomatis wajib dilakukan begitu poin
+#1 di atas dibereskan (kolom `attachment_name` akan hilang sama sekali).
+
+## 3. Kode mati di `OrderController::store()` bisa bikin crash 500
+
+**File:** `app/Http/Controllers/Api/OrderController.php`, di dalam transaksi `store()`
+
+```php
+$file = $request->file("attachments.{$item->service_id}");
+$path = $file->store("attachments/{$order->order_no}", 'local');
+```
+
+Dua baris ini sisa kode lama, hasilnya tidak pernah dipakai (`$path` tidak dipakai lagi setelahnya
+— logic penyimpanan attachment yang benar ada beberapa baris di bawahnya). Karena attachment kini
+opsional untuk service yang `requires_attachment = false`, `$request->file(...)` bisa saja
+`null` — lalu `$file->store(...)` jadi **fatal error** (`Call to a member function store() on
+null`) → response 500 saat checkout tanpa attachment untuk layanan yang tidak mewajibkannya.
+
+**Saran:** hapus dua baris itu saja.
+
+## 4. Test `CartCheckoutTest` sudah tidak sesuai kode saat ini
+
+**File:** `tests/Feature/CartCheckoutTest.php`
+
+- `makeService()` belum punya parameter untuk `requires_attachment`, padahal `OrderController::store()`
+  sudah pakai `$item->service->requires_attachment` untuk menentukan attachment wajib/opsional.
+- `test_checkout_fails_without_attachment()` asumsinya attachment selalu wajib — begitu poin #3
+  dibereskan (attachment jadi benar-benar opsional untuk service yang tidak mewajibkan), test ini
+  jadi salah asumsi dan perlu split jadi dua skenario: gagal ketika `requires_attachment = true`,
+  sukses ketika `false`.
+- Asersi `assertJsonPath('items.0.attachment_name', 'naskah.pdf')` harus jadi
+  `attachment_original_name` (field yang benar-benar dikembalikan API, lihat `OrderItemResource`).
+
+## 5. Rute cart/order/payment duplikat di `routes/api.php`
+
+**File:** `routes/api.php`
+
+Baris 52–70 (tanpa middleware `auth:sanctum`) mendaftarkan rute yang **sama persis** dengan yang
+ada di dalam grup `auth:sanctum` (baris 89–102) — sisa dari sebelum alur checkout diubah jadi
+wajib login. Karena Laravel pakai rute pertama yang cocok, rute publik (tanpa auth) itu yang
+sebenarnya aktif, bukan yang di dalam grup auth. Tidak sampai jadi lubang keamanan (tanpa login,
+`Order::findAccessibleOrFail` tetap 404 dan `OrderController::store()` crash karena `$user` null),
+tapi ini kode mati yang membingungkan dan idealnya dibersihkan — cukup hapus blok baris 52–70,
+sisakan yang di dalam grup `auth:sanctum`.
+
+Terkait: rute download **hasil** (`orders/{order_no}/items/{item}/result`) cuma terdaftar di blok
+publik itu, tidak didaftarkan ulang di dalam grup `auth:sanctum` — beda pola dengan rute attachment
+yang didaftarkan di kedua blok. Perlu diselaraskan saat membereskan poin ini.
+
+## 6. Status pembayaran bisa "stuck" kalau webhook Midtrans tidak sampai
+
+**File:** `app/Http/Controllers/Api/PaymentController.php` (`status()`), `PaymentNotificationController.php`
+
+Status order (`awaiting_payment` → `paid`) murni bergantung pada webhook Midtrans
+(`POST /api/payments/notification`). Kalau backend jalan di `localhost` (dev lokal) atau webhook
+URL di dashboard Midtrans belum di-set/tidak reachable, webhook **tidak akan pernah sampai**, dan
+halaman pembayaran di frontend akan terus polling status yang sama tanpa berubah selamanya.
+
+**Saran perbaikan** (sempat dicoba, hasilnya bagus, tapi di-revert supaya keputusan desain tetap di
+tangan yang mengerjakan backend):
+- Tambah helper bersama (mis. `App\Support\PaymentStatusSync`) yang menerapkan status Midtrans ke
+  `Payment` + `Order` secara idempotent (pakai `lockForUpdate()`), dipakai baik oleh webhook maupun
+  endpoint status.
+- Di `PaymentController::status()`, kalau payment masih belum status final, panggil langsung
+  `\Midtrans\Transaction::status($payment->midtrans_order_id)` dan terapkan hasilnya lewat helper
+  di atas. Jadi polling dari frontend tetap bisa "menyembuhkan diri" walau webhook tidak pernah
+  sampai — dibungkus try/catch supaya kalau Midtrans tidak bisa dihubungi, tidak menjatuhkan
+  endpoint (biarkan polling berikutnya coba lagi).
+- Alternatif/tambahan di luar kode: pastikan `APP_URL` publik (pakai tunnel semacam ngrok saat dev)
+  dan Payment Notification URL di dashboard Midtrans Sandbox di-set ke URL itu.
+
+## 7. (Opsional, belum dikerjakan) Fitur edit data pemesan sebelum bayar
+
+Ditemukan di git stash lama (`stash@{0}` di riwayat lokal, sudah tidak ada di working tree) ada
+draft endpoint `PATCH /orders/{order_no}` untuk edit `guest_name`/`guest_phone` selama order belum
+berstatus final (`paid`/`failed`/`cancelled`/`expired`). Kalau memang dibutuhkan sebagai fitur,
+bisa dikerjakan ulang dari nol — bukan restore stash, karena isinya sudah agak beda dari struktur
+kode sekarang.
+
+## 8. Eager loading `->with('items')` di listing order (minor, perf)
+
+`Admin\OrderController::index()` dan `OrderController::index()` (customer) melakukan query
+`Order::...->paginate(...)` tanpa `->with('items')`, sementara `OrderResource` mengakses
+`$this->whenLoaded('items')` — kalau nanti field items ini ditampilkan di listing (bukan cuma di
+`show()`), berpotensi N+1 query. Belum berdampak sekarang karena listing tidak menampilkan items,
+tapi baik untuk diwaspadai kalau field itu dipakai di tampilan admin/riwayat order nanti.
