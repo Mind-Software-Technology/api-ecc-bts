@@ -18,6 +18,7 @@ class TestimonialResource extends JsonResource
             'role' => $this->role,
             'text' => $this->text,
             'rating' => (float) $this->rating,
+            'sort_order' => $this->sort_order,
         ];
     }
 }
