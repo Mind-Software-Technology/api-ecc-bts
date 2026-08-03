@@ -15,6 +15,7 @@ class OrderResultReady extends Notification
     public function __construct(
         private readonly Order $order,
         private readonly OrderItem $orderItem,
+        private readonly bool $isRevision = false,
     ) {}
 
     /**
@@ -27,11 +28,19 @@ class OrderResultReady extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
+        $subject = $this->isRevision
+            ? "Hasil layanan \"{$this->orderItem->title_snapshot}\" telah diperbarui"
+            : "Hasil layanan \"{$this->orderItem->title_snapshot}\" sudah siap";
+
+        $line = $this->isRevision
+            ? "Hasil untuk layanan \"{$this->orderItem->title_snapshot}\" pada pesanan {$this->order->order_no} telah diperbarui."
+            : "Hasil untuk layanan \"{$this->orderItem->title_snapshot}\" pada pesanan {$this->order->order_no} sudah tersedia.";
+
         return (new MailMessage)
-            ->subject("Hasil layanan \"{$this->orderItem->title_snapshot}\" sudah siap")
+            ->subject($subject)
             ->greeting("Halo {$this->order->guest_name},")
-            ->line("Hasil untuk layanan \"{$this->orderItem->title_snapshot}\" pada pesanan {$this->order->order_no} sudah tersedia.")
-            ->action('Lihat Pesanan', rtrim(config('services.frontend_url'), '/')."/pesanan/{$this->order->order_no}")
+            ->line($line)
+            ->action('Lihat Pesanan', rtrim(config('services.frontend_url'), '/').'/riwayat-pembayaran')
             ->line('Terima kasih telah menggunakan layanan ECC-BTS.');
     }
 }
