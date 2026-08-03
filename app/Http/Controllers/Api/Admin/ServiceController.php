@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\ServiceResource;
 use App\Models\Service;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ServiceController extends Controller
 {
@@ -20,12 +21,24 @@ class ServiceController extends Controller
     {
         $data = $request->validate($this->rules());
 
+        if ($request->hasFile('image')) {
+            $data['image_path'] = $request->file('image')->store('services', 'public');
+        }
+
         return new ServiceResource(Service::create($data)->load('category'));
     }
 
     public function update(Request $request, Service $service)
     {
         $data = $request->validate($this->rules(sometimes: true, ignoreId: $service->id));
+
+        if ($request->hasFile('image')) {
+            if ($service->image_path) {
+                Storage::disk('public')->delete($service->image_path);
+            }
+
+            $data['image_path'] = $request->file('image')->store('services', 'public');
+        }
 
         $service->update($data);
 
@@ -34,6 +47,10 @@ class ServiceController extends Controller
 
     public function destroy(Service $service)
     {
+        if ($service->image_path) {
+            Storage::disk('public')->delete($service->image_path);
+        }
+
         $service->delete();
 
         return response()->noContent();
@@ -53,7 +70,7 @@ class ServiceController extends Controller
             'points' => $prefix.'array',
             'icon' => $prefix.'string|max:60',
             'accent' => $prefix.'string|max:20',
-            'image_url' => 'nullable|string|max:255',
+            'image' => 'nullable|image|max:4096',
             'image_alt' => 'nullable|string|max:160',
             'price' => $prefix.'integer|min:0',
             'rating' => 'sometimes|numeric|min:0|max:5',

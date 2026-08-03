@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class ServiceResource extends JsonResource
 {
@@ -22,7 +23,7 @@ class ServiceResource extends JsonResource
             'points' => $this->points,
             'icon' => $this->icon,
             'accent' => $this->accent,
-            'image_url' => $this->image_url,
+            'image_url' => $this->image_path ? Storage::disk('public')->url($this->image_path) : $this->image_url,
             'image_alt' => $this->image_alt,
             'price' => $this->price,
             'rating' => (float) $this->rating,

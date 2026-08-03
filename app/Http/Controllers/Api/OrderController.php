@@ -116,7 +116,7 @@ class OrderController extends Controller
         $item = $order->items()->whereKey($item_id)->firstOrFail();
         abort_unless($item->attachment_path && Storage::disk('local')->exists($item->attachment_path), 404);
 
-        return Storage::disk('local')->download($item->attachment_path, $item->attachment_name);
+        return Storage::disk('local')->download($item->attachment_path, $item->attachment_original_name);
     }
 
     public function index(Request $request)
