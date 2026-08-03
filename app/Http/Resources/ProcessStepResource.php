@@ -18,6 +18,7 @@ class ProcessStepResource extends JsonResource
             'icon' => $this->icon,
             'title' => $this->title,
             'description' => $this->description,
+            'sort_order' => $this->sort_order,
         ];
     }
 }
