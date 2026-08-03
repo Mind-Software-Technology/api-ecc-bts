@@ -14,7 +14,7 @@ class CartCheckoutTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makeService(int $price = 100000): Service
+    private function makeService(int $price = 100000, bool $requiresAttachment = true): Service
     {
         $category = Category::create([
             'slug' => 'kategori-'.uniqid(),
@@ -36,6 +36,7 @@ class CartCheckoutTest extends TestCase
             'accent' => 'blue',
             'price' => $price,
             'is_active' => true,
+            'requires_attachment' => $requiresAttachment,
         ]);
     }
 
@@ -75,7 +76,7 @@ class CartCheckoutTest extends TestCase
         $checkoutResponse->assertJsonPath('total', 300000);
         $checkoutResponse->assertJsonPath('items.0.qty', 3);
         $checkoutResponse->assertJsonPath('items.0.price_snapshot', 100000);
-        $checkoutResponse->assertJsonPath('items.0.attachment_name', 'naskah.pdf');
+        $checkoutResponse->assertJsonPath('items.0.attachment_original_name', 'naskah.pdf');
         $checkoutResponse->assertJsonPath('guest_email', $user->email);
 
         $cartAfter = $this->actingAs($user)->getJson('/api/cart');
@@ -83,10 +84,10 @@ class CartCheckoutTest extends TestCase
         $this->assertCount(0, $cartAfter->json('items'));
     }
 
-    public function test_checkout_fails_without_attachment(): void
+    public function test_checkout_fails_without_attachment_when_required(): void
     {
         $user = User::factory()->create();
-        $service = $this->makeService();
+        $service = $this->makeService(requiresAttachment: true);
 
         $this->actingAs($user)->postJson('/api/cart/items', ['service_id' => $service->id, 'qty' => 1]);
 
@@ -96,6 +97,21 @@ class CartCheckoutTest extends TestCase
         ]);
 
         $response->assertStatus(422);
+    }
+
+    public function test_checkout_succeeds_without_attachment_when_not_required(): void
+    {
+        $user = User::factory()->create();
+        $service = $this->makeService(requiresAttachment: false);
+
+        $this->actingAs($user)->postJson('/api/cart/items', ['service_id' => $service->id, 'qty' => 1]);
+
+        $response = $this->actingAs($user)->postJson('/api/orders', [
+            'guest_name' => 'Budi',
+            'guest_phone' => '081234567890',
+        ]);
+
+        $response->assertCreated();
     }
 
     public function test_checkout_fails_with_empty_cart(): void

@@ -58,9 +58,6 @@ class OrderController extends Controller
                 $lineTotal = $item->service->price * $item->qty;
                 $subtotal += $lineTotal;
 
-                $file = $request->file("attachments.{$item->service_id}");
-                $path = $file->store("attachments/{$order->order_no}", 'local');
-
                 $orderItemData = [
                     'service_id' => $item->service_id,
                     'title_snapshot' => $item->service->title,

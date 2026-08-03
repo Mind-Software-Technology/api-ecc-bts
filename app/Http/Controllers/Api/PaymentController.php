@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\PaymentResource;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Support\PaymentStatusSync;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -71,6 +72,21 @@ class PaymentController extends Controller
     {
         $order = Order::findAccessibleOrFail($order_no, $request);
         $payment = $order->payments()->latest()->firstOrFail();
+
+        // Status normally lands via the Midtrans webhook, but that can be
+        // missed (unreachable notification URL, dev/local backend, etc.) —
+        // so a still-pending payment gets one active poll to Midtrans here,
+        // letting the frontend's status polling self-heal instead of
+        // sticking on "awaiting_payment" forever.
+        if (! in_array($payment->transaction_status, PaymentStatusSync::TERMINAL_STATUSES)) {
+            try {
+                $response = \Midtrans\Transaction::status($payment->midtrans_order_id);
+                PaymentStatusSync::apply($payment, $response->transaction_status, $response->fraud_status ?? null);
+                $payment = $payment->fresh();
+            } catch (\Exception) {
+                // Midtrans unreachable/erroring — leave status as-is, next poll retries.
+            }
+        }
 
         return new PaymentResource($payment);
     }
