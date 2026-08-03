@@ -51,7 +51,9 @@ class OrderController extends Controller
             'result' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
         ]);
 
-        if ($orderItem->result_path) {
+        $isRevision = $orderItem->result_path !== null;
+
+        if ($isRevision) {
             Storage::disk('local')->delete($orderItem->result_path);
         }
 
@@ -62,7 +64,7 @@ class OrderController extends Controller
             'result_delivered_at' => now(),
         ]);
 
-        Notification::route('mail', $order->guest_email)->notify(new OrderResultReady($order, $orderItem));
+        Notification::route('mail', $order->guest_email)->notify(new OrderResultReady($order, $orderItem, $isRevision));
 
         return new OrderItemResource($orderItem);
     }

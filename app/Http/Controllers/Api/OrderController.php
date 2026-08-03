@@ -122,6 +122,7 @@ class OrderController extends Controller
         $page = (int) $request->query('page', 1);
 
         $orders = Order::where('user_id', $request->user()->id)
+            ->with('items')
             ->latest()->paginate($limit, ['*'], 'page', $page);
 
         return [
