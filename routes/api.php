@@ -64,6 +64,8 @@ Route::get('orders', [OrderController::class, 'index'])->middleware('throttle:20
 Route::get('orders/{order_no}/items/{item}/attachment', [OrderController::class, 'downloadAttachment']);
 Route::get('orders/{order_no}/items/{item}/result', [OrderController::class, 'downloadResult']);
 Route::post('orders/{order_no}/testimonial', [OrderController::class, 'submitTestimonial']);
+Route::post('orders/{order_no}/accept-quote', [OrderController::class, 'acceptQuote']);
+Route::post('orders/{order_no}/decline', [OrderController::class, 'decline']);
 
 // Payments (Midtrans Core API)
 Route::post('payments', [PaymentController::class, 'store'])->middleware('throttle:10,1');
@@ -120,6 +122,9 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     Route::get('analytics/revenue', [AdminOrderController::class, 'revenue']);
     Route::get('orders/{order_no}', [AdminOrderController::class, 'show']);
     Route::post('orders/{order_no}/items/{item}/result', [AdminOrderController::class, 'uploadResult']);
+    Route::post('orders/{order_no}/quote', [AdminOrderController::class, 'quote']);
+    Route::get('orders/{order_no}/items/{item}/attachment', [AdminOrderController::class, 'attachment']);
+    Route::get('orders/{order_no}/items/{item}/result', [AdminOrderController::class, 'result']);
     Route::get('payments', [AdminPaymentController::class, 'index']);
     Route::get('payments/{payment}', [AdminPaymentController::class, 'show']);
     Route::get('contact-messages', [AdminContactMessageController::class, 'index']);

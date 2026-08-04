@@ -8,8 +8,11 @@ use App\Http\Resources\TestimonialResource;
 use App\Models\Cart;
 use App\Models\Order;
 use App\Models\Testimonial;
+use App\Models\User;
+use App\Notifications\NewQuoteRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -50,22 +53,18 @@ class OrderController extends Controller
                 'guest_name' => $data['guest_name'],
                 'guest_email' => $user->email,
                 'guest_phone' => $data['guest_phone'],
-                'status' => 'pending',
-                'subtotal' => 0,
-                'total' => 0,
+                'status' => 'awaiting_quote',
+                'subtotal' => null,
+                'total' => null,
             ]);
 
-            $subtotal = 0;
             foreach ($items as $item) {
-                $lineTotal = $item->service->price * $item->qty;
-                $subtotal += $lineTotal;
-
                 $orderItemData = [
                     'service_id' => $item->service_id,
                     'title_snapshot' => $item->service->title,
-                    'price_snapshot' => $item->service->price,
+                    'price_snapshot' => null,
                     'qty' => $item->qty,
-                    'line_total' => $lineTotal,
+                    'line_total' => null,
                 ];
 
                 if ($file = $request->file("attachments.{$item->service_id}")) {
@@ -76,13 +75,15 @@ class OrderController extends Controller
                 $order->items()->create($orderItemData);
             }
 
-            $order->update(['subtotal' => $subtotal, 'total' => $subtotal]);
             $cart->items()->delete();
 
             return $order;
         });
 
-        return new OrderResource($order->load('items'));
+        $order->load('items');
+        Notification::send(User::where('role', 'admin')->get(), new NewQuoteRequest($order));
+
+        return new OrderResource($order);
     }
 
     
@@ -153,6 +154,30 @@ class OrderController extends Controller
         ]);
 
         return new TestimonialResource($testimonial);
+    }
+
+    public function acceptQuote(Request $request, string $order_no)
+    {
+        $order = Order::findAccessibleOrFail($order_no, $request);
+        abort_unless($order->status === 'quoted', 422, 'Pesanan ini belum memiliki penawaran harga untuk disetujui.');
+
+        $order->update(['status' => 'pending']);
+
+        return new OrderResource($order->load('items'));
+    }
+
+    public function decline(Request $request, string $order_no)
+    {
+        $order = Order::findAccessibleOrFail($order_no, $request);
+        abort_unless(
+            in_array($order->status, ['awaiting_quote', 'quoted']),
+            422,
+            'Pesanan ini tidak bisa dibatalkan pada status saat ini.',
+        );
+
+        $order->update(['status' => 'cancelled']);
+
+        return new OrderResource($order->load('items'));
     }
 
     public function downloadAttachment(Request $request, string $order_no, int $item_id): StreamedResponse

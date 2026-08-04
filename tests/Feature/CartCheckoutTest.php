@@ -6,8 +6,10 @@ use App\Models\Category;
 use App\Models\Order;
 use App\Models\Service;
 use App\Models\User;
+use App\Notifications\NewQuoteRequest;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -73,16 +75,37 @@ class CartCheckoutTest extends TestCase
         ]);
 
         $checkoutResponse->assertCreated();
-        $checkoutResponse->assertJsonPath('subtotal', 300000);
-        $checkoutResponse->assertJsonPath('total', 300000);
+        $checkoutResponse->assertJsonPath('status', 'awaiting_quote');
+        $checkoutResponse->assertJsonPath('subtotal', null);
+        $checkoutResponse->assertJsonPath('total', null);
         $checkoutResponse->assertJsonPath('items.0.qty', 3);
-        $checkoutResponse->assertJsonPath('items.0.price_snapshot', 100000);
+        $checkoutResponse->assertJsonPath('items.0.price_snapshot', null);
         $checkoutResponse->assertJsonPath('items.0.attachment_original_name', 'naskah.pdf');
         $checkoutResponse->assertJsonPath('guest_email', $user->email);
 
         $cartAfter = $this->actingAs($user)->getJson('/api/cart');
         $cartAfter->assertOk();
         $this->assertCount(0, $cartAfter->json('items'));
+    }
+
+    public function test_checkout_notifies_admins_only(): void
+    {
+        Notification::fake();
+
+        $admin = User::factory()->create(['role' => 'admin']);
+        $otherUser = User::factory()->create();
+        $user = User::factory()->create();
+        $service = $this->makeService(requiresAttachment: false);
+
+        $this->actingAs($user)->postJson('/api/cart/items', ['service_id' => $service->id, 'qty' => 1]);
+        $this->actingAs($user)->postJson('/api/orders', [
+            'guest_name' => 'Budi',
+            'guest_phone' => '081234567890',
+        ])->assertCreated();
+
+        Notification::assertSentTo($admin, NewQuoteRequest::class);
+        Notification::assertNotSentTo($otherUser, NewQuoteRequest::class);
+        Notification::assertNotSentTo($user, NewQuoteRequest::class);
     }
 
     public function test_checkout_fails_without_attachment_when_required(): void
