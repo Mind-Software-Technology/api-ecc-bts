@@ -99,6 +99,23 @@ class PaymentController extends Controller
         $payment = $order->payments()->where('transaction_status', 'pending')->latest()->first();
         abort_if(! $payment, 422, 'Tidak ada transaksi pending untuk dibatalkan.');
 
+        // Local status can drift from Midtrans's actual status if the webhook
+        // never arrived — e.g. some payment methods (QRIS/GoPay) auto-expire
+        // on Midtrans's side in minutes, long before our own record catches
+        // up. Sync first so we don't call Transaction::cancel() on something
+        // Midtrans already closed (that call 412s with a confusing raw error).
+        try {
+            $latest = \Midtrans\Transaction::status($payment->midtrans_order_id);
+            PaymentStatusSync::apply($payment, $latest->transaction_status, $latest->fraud_status ?? null);
+            $payment = $payment->fresh();
+            $order = $order->fresh();
+        } catch (\Exception) {
+            // Midtrans unreachable — fall through, the direct cancel call below still tries.
+        }
+
+        abort_if($order->status === 'paid', 422, 'Order sudah dibayar, tidak bisa dibatalkan.');
+        abort_if($payment->transaction_status !== 'pending', 422, 'Transaksi ini sudah tidak berstatus menunggu pembayaran (mis. kedaluwarsa di Midtrans). Silakan muat ulang halaman.');
+
         try {
             $response = \Midtrans\Transaction::cancel($payment->midtrans_order_id);
         } catch (\Exception $e) {
