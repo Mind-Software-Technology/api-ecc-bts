@@ -32,6 +32,35 @@ class OrderController extends Controller
         ];
     }
 
+    /**
+     * Revenue + order count per month, last 12 months (including the
+     * current one), for the dashboard chart. Grouped in PHP rather than
+     * SQL DATE_FORMAT/strftime so it works the same on MySQL (prod) and
+     * SQLite (tests).
+     */
+    public function revenue()
+    {
+        $since = now()->subMonths(11)->startOfMonth();
+
+        $byMonth = Order::where('status', 'paid')
+            ->where('created_at', '>=', $since)
+            ->get(['total', 'created_at'])
+            ->groupBy(fn ($order) => $order->created_at->format('Y-m'));
+
+        $data = collect(range(11, 0))->map(function ($monthsAgo) use ($byMonth) {
+            $key = now()->subMonths($monthsAgo)->format('Y-m');
+            $group = $byMonth->get($key, collect());
+
+            return [
+                'month' => $key,
+                'revenue' => (int) $group->sum('total'),
+                'orders' => $group->count(),
+            ];
+        });
+
+        return ['data' => $data->values()];
+    }
+
     public function show(string $order_no)
     {
         $order = Order::where('order_no', $order_no)

@@ -115,6 +115,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     Route::put('site-config', [AdminSiteConfigController::class, 'update']);
 
     Route::get('orders', [AdminOrderController::class, 'index']);
+    Route::get('analytics/revenue', [AdminOrderController::class, 'revenue']);
     Route::get('orders/{order_no}', [AdminOrderController::class, 'show']);
     Route::post('orders/{order_no}/items/{item}/result', [AdminOrderController::class, 'uploadResult']);
     Route::get('payments', [AdminPaymentController::class, 'index']);
