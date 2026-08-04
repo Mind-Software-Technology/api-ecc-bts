@@ -59,6 +59,7 @@ Route::delete('cart/items/{id}', [CartItemController::class, 'destroy']);
 // Checkout / Order
 Route::post('orders', [OrderController::class, 'store']);
 Route::get('orders/{order_no}', [OrderController::class, 'show']);
+Route::patch('orders/{order_no}', [OrderController::class, 'update']);
 Route::get('orders', [OrderController::class, 'index'])->middleware('throttle:20,1');
 Route::get('orders/{order_no}/items/{item}/attachment', [OrderController::class, 'downloadAttachment']);
 Route::get('orders/{order_no}/items/{item}/result', [OrderController::class, 'downloadResult']);

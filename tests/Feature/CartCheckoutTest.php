@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Category;
+use App\Models\Order;
 use App\Models\Service;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -121,6 +122,47 @@ class CartCheckoutTest extends TestCase
         $response = $this->actingAs($user)->postJson('/api/orders', [
             'guest_name' => 'Budi',
             'guest_phone' => '081234567890',
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_orderer_data_can_be_updated_before_payment(): void
+    {
+        $user = User::factory()->create();
+        $service = $this->makeService(requiresAttachment: false);
+
+        $this->actingAs($user)->postJson('/api/cart/items', ['service_id' => $service->id, 'qty' => 1]);
+        $order = $this->actingAs($user)->postJson('/api/orders', [
+            'guest_name' => 'Budi',
+            'guest_phone' => '081234567890',
+        ])->json();
+
+        $response = $this->actingAs($user)->patchJson("/api/orders/{$order['order_no']}", [
+            'guest_name' => 'Budi Santoso',
+            'guest_phone' => '089876543210',
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('guest_name', 'Budi Santoso');
+        $response->assertJsonPath('guest_phone', '089876543210');
+    }
+
+    public function test_orderer_data_cannot_be_updated_once_paid(): void
+    {
+        $user = User::factory()->create();
+        $service = $this->makeService(requiresAttachment: false);
+
+        $this->actingAs($user)->postJson('/api/cart/items', ['service_id' => $service->id, 'qty' => 1]);
+        $order = $this->actingAs($user)->postJson('/api/orders', [
+            'guest_name' => 'Budi',
+            'guest_phone' => '081234567890',
+        ])->json();
+        Order::whereKey($order['id'])->update(['status' => 'paid']);
+
+        $response = $this->actingAs($user)->patchJson("/api/orders/{$order['order_no']}", [
+            'guest_name' => 'Budi Santoso',
+            'guest_phone' => '089876543210',
         ]);
 
         $response->assertStatus(422);

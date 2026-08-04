@@ -107,6 +107,25 @@ class OrderController extends Controller
         return new OrderResource(Order::findAccessibleOrFail($order_no, $request));
     }
 
+    public function update(Request $request, string $order_no)
+    {
+        $order = Order::findAccessibleOrFail($order_no, $request);
+        abort_if(
+            in_array($order->status, ['paid', 'failed', 'cancelled', 'expired']),
+            422,
+            'Data pemesan tidak bisa diubah karena pesanan sudah berstatus final.',
+        );
+
+        $data = $request->validate([
+            'guest_name' => 'required|string|max:255',
+            'guest_phone' => 'required|string|max:30',
+        ]);
+
+        $order->update($data);
+
+        return new OrderResource($order->load('items'));
+    }
+
     public function downloadAttachment(Request $request, string $order_no, int $item_id): StreamedResponse
     {
         $order = Order::findAccessibleOrFail($order_no, $request);
