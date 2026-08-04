@@ -24,6 +24,12 @@ class OrderResource extends JsonResource
             'total' => $this->total,
             'items' => OrderItemResource::collection($this->whenLoaded('items')),
             'created_at' => $this->created_at,
+            'has_testimonial' => (bool) $this->testimonial_exists,
+            'can_review' => $this->status === 'paid'
+                && $this->relationLoaded('items')
+                && $this->items->isNotEmpty()
+                && $this->items->every(fn ($item) => $item->result_delivered_at !== null)
+                && ! $this->testimonial_exists,
         ];
     }
 }

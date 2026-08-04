@@ -63,6 +63,7 @@ Route::patch('orders/{order_no}', [OrderController::class, 'update']);
 Route::get('orders', [OrderController::class, 'index'])->middleware('throttle:20,1');
 Route::get('orders/{order_no}/items/{item}/attachment', [OrderController::class, 'downloadAttachment']);
 Route::get('orders/{order_no}/items/{item}/result', [OrderController::class, 'downloadResult']);
+Route::post('orders/{order_no}/testimonial', [OrderController::class, 'submitTestimonial']);
 
 // Payments (Midtrans Core API)
 Route::post('payments', [PaymentController::class, 'store'])->middleware('throttle:10,1');
@@ -107,7 +108,8 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::apiResource('categories', AdminCategoryController::class)->except('show');
     Route::apiResource('services', AdminServiceController::class)->except('show');
-    Route::apiResource('testimonials', AdminTestimonialController::class)->except('show');
+    Route::get('testimonials', [AdminTestimonialController::class, 'index']);
+    Route::patch('testimonials/{testimonial}/toggle-active', [AdminTestimonialController::class, 'toggleActive']);
     Route::apiResource('faqs', AdminFaqController::class)->except('show');
     Route::apiResource('advantages', AdminAdvantageController::class)->except('show');
     Route::apiResource('process-steps', AdminProcessStepController::class)->except('show');

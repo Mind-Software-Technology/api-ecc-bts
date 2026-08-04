@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\OrderResource;
+use App\Http\Resources\TestimonialResource;
 use App\Models\Cart;
 use App\Models\Order;
+use App\Models\Testimonial;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -126,6 +128,33 @@ class OrderController extends Controller
         return new OrderResource($order->load('items'));
     }
 
+    public function submitTestimonial(Request $request, string $order_no)
+    {
+        $order = Order::findAccessibleOrFail($order_no, $request);
+
+        $fullyDelivered = $order->status === 'paid'
+            && $order->items->isNotEmpty()
+            && $order->items->every(fn ($item) => $item->result_delivered_at !== null);
+        abort_unless($fullyDelivered, 422, 'Testimoni hanya bisa diberikan setelah pesanan berhasil dibayar dan seluruh hasilnya sudah dikirim.');
+
+        abort_if(Testimonial::where('order_id', $order->id)->exists(), 422, 'Anda sudah memberikan testimoni untuk pesanan ini.');
+
+        $data = $request->validate([
+            'role' => 'required|string|max:255',
+            'text' => 'required|string|max:2000',
+            'rating' => 'required|numeric|min:1|max:5',
+        ]);
+
+        $testimonial = Testimonial::create($data + [
+            'user_id' => $request->user()->id,
+            'order_id' => $order->id,
+            'name' => $request->user()->name,
+            'sort_order' => 0,
+        ]);
+
+        return new TestimonialResource($testimonial);
+    }
+
     public function downloadAttachment(Request $request, string $order_no, int $item_id): StreamedResponse
     {
         $order = Order::findAccessibleOrFail($order_no, $request);
@@ -141,6 +170,7 @@ class OrderController extends Controller
         $page = (int) $request->query('page', 1);
 
         $orders = Order::where('user_id', $request->user()->id)
+            ->withExists('testimonial')
             ->with('items')
             ->latest()->paginate($limit, ['*'], 'page', $page);
 

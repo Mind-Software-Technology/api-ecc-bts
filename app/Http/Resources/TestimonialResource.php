@@ -19,6 +19,9 @@ class TestimonialResource extends JsonResource
             'text' => $this->text,
             'rating' => (float) $this->rating,
             'sort_order' => $this->sort_order,
+            'is_active' => (bool) $this->is_active,
+            'order_no' => $this->whenLoaded('order', fn () => $this->order?->order_no),
+            'user_email' => $this->whenLoaded('user', fn () => $this->user?->email),
         ];
     }
 }

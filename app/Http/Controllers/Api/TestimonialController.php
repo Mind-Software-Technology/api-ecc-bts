@@ -10,7 +10,7 @@ class TestimonialController extends Controller
 {
     public function index()
     {
-        $testimonials = Testimonial::orderBy('sort_order')->get();
+        $testimonials = Testimonial::where('is_active', true)->orderBy('sort_order')->get();
 
         return ['data' => TestimonialResource::collection($testimonials)];
     }
