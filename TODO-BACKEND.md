@@ -103,13 +103,33 @@ tangan yang mengerjakan backend):
 - Alternatif/tambahan di luar kode: pastikan `APP_URL` publik (pakai tunnel semacam ngrok saat dev)
   dan Payment Notification URL di dashboard Midtrans Sandbox di-set ke URL itu.
 
-## 7. (Opsional, belum dikerjakan) Fitur edit data pemesan sebelum bayar
+## 7. Endpoint `PATCH /orders/{order_no}` belum ada — dipakai aktif oleh frontend, sekarang error
 
-Ditemukan di git stash lama (`stash@{0}` di riwayat lokal, sudah tidak ada di working tree) ada
-draft endpoint `PATCH /orders/{order_no}` untuk edit `guest_name`/`guest_phone` selama order belum
-berstatus final (`paid`/`failed`/`cancelled`/`expired`). Kalau memang dibutuhkan sebagai fitur,
-bisa dikerjakan ulang dari nol — bukan restore stash, karena isinya sudah agak beda dari struktur
-kode sekarang.
+**Status: sudah bukan opsional.** Frontend (`app/bayar/data/page.jsx`, mode edit — dibuka dari
+tombol "Ubah data pemesan" di halaman `/bayar`) sudah memanggil
+`PATCH /api/orders/{order_no}` (lihat `lib/api.js` → `api.orders.update()`) untuk mengubah
+`guest_name`/`guest_phone` sebelum bayar. Karena route-nya belum terdaftar di backend, user dapat
+error nyata di production/testing:
+
+```
+The PATCH method is not supported for route api/orders/INV-20260804-4312. Supported methods: GET, HEAD.
+```
+
+**Yang perlu ditambahkan:**
+- Route baru: `Route::patch('orders/{order_no}', [OrderController::class, 'update'])` di dalam
+  grup `auth:sanctum` (baris ~89–102 di `routes/api.php`, sekelompok dengan route `orders` lain).
+- Method `OrderController::update(Request $request, string $order_no)`:
+  - `Order::findAccessibleOrFail($order_no, $request)` untuk resolve + otorisasi order-nya.
+  - Validasi `guest_name` (`nullable|string|max:255`), `guest_phone` (`nullable|string|max:30`) —
+    ikuti aturan yang sama dengan `store()`.
+  - Tolak (422) kalau `order->status` sudah final (`paid`/`failed`/`cancelled`/`expired`) — sejalan
+    dengan komentar di frontend ("items/attachments stay locked once an order exists"), field yang
+    boleh diubah cuma nama & no. WhatsApp, bukan item/attachment.
+  - Simpan lalu `return new OrderResource($order->fresh())`.
+
+Draft lama pernah ada di git stash lokal (`stash@{0}`, sudah tidak di working tree) tapi strukturnya
+sudah agak beda dari kode sekarang — sebaiknya ditulis ulang dari nol mengikuti pola di atas,
+bukan restore stash.
 
 ## 8. Eager loading `->with('items')` di listing order (minor, perf)
 
