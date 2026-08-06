@@ -63,94 +63,19 @@ class QuoteFlowTest extends TestCase
         return $order;
     }
 
-    public function test_admin_can_quote_order_then_customer_can_accept(): void
+    // Admin quote-setting is now handled by the Filament panel action
+    // (App\Filament\Resources\OrderResource\Pages\ViewOrder), covered by
+    // FilamentAdminSmokeTest::test_admin_can_set_quote_price_via_order_view_action.
+
+    public function test_customer_can_accept_quoted_order(): void
     {
-        $admin = User::factory()->create(['role' => 'admin']);
         $user = User::factory()->create();
-        $order = $this->makeOrder($user, 'awaiting_quote', itemCount: 2);
-        $items = $order->items;
+        $order = $this->makeOrder($user, 'quoted');
 
-        $quoteResponse = $this->actingAs($admin)->postJson("/api/admin/orders/{$order->order_no}/quote", [
-            'items' => [
-                ['id' => $items[0]->id, 'price' => 50000],
-                ['id' => $items[1]->id, 'price' => 75000],
-            ],
-        ]);
-
-        $quoteResponse->assertOk();
-        $quoteResponse->assertJsonPath('status', 'quoted');
-        // qty=2 per item -> line_total = price * 2
-        $quoteResponse->assertJsonPath('total', (50000 * 2) + (75000 * 2));
-
-        $acceptResponse = $this->actingAs($user)->postJson("/api/orders/{$order->order_no}/accept-quote");
-        $acceptResponse->assertOk();
-        $acceptResponse->assertJsonPath('status', 'pending');
-    }
-
-    public function test_admin_quote_rejects_partial_pricing(): void
-    {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $user = User::factory()->create();
-        $order = $this->makeOrder($user, 'awaiting_quote', itemCount: 2);
-        $items = $order->items;
-
-        $response = $this->actingAs($admin)->postJson("/api/admin/orders/{$order->order_no}/quote", [
-            'items' => [
-                ['id' => $items[0]->id, 'price' => 50000],
-            ],
-        ]);
-
-        $response->assertStatus(422);
-        $this->assertSame('awaiting_quote', $order->fresh()->status);
-    }
-
-    public function test_admin_quote_rejects_unknown_item_id(): void
-    {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $user = User::factory()->create();
-        $order = $this->makeOrder($user, 'awaiting_quote', itemCount: 1);
-
-        $response = $this->actingAs($admin)->postJson("/api/admin/orders/{$order->order_no}/quote", [
-            'items' => [
-                ['id' => 999999, 'price' => 50000],
-            ],
-        ]);
-
-        $response->assertStatus(422);
-    }
-
-    public function test_admin_quote_rejects_wrong_order_status(): void
-    {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $user = User::factory()->create();
-        $order = $this->makeOrder($user, 'pending', itemCount: 1);
-        $item = $order->items->first();
-
-        $response = $this->actingAs($admin)->postJson("/api/admin/orders/{$order->order_no}/quote", [
-            'items' => [
-                ['id' => $item->id, 'price' => 50000],
-            ],
-        ]);
-
-        $response->assertStatus(422);
-    }
-
-    public function test_admin_can_requote_before_customer_accepts(): void
-    {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $user = User::factory()->create();
-        $order = $this->makeOrder($user, 'quoted', itemCount: 1);
-        $item = $order->items->first();
-
-        $response = $this->actingAs($admin)->postJson("/api/admin/orders/{$order->order_no}/quote", [
-            'items' => [
-                ['id' => $item->id, 'price' => 60000],
-            ],
-        ]);
+        $response = $this->actingAs($user)->postJson("/api/orders/{$order->order_no}/accept-quote");
 
         $response->assertOk();
-        $response->assertJsonPath('status', 'quoted');
-        $response->assertJsonPath('total', 120000);
+        $response->assertJsonPath('status', 'pending');
     }
 
     public function test_customer_cannot_accept_before_quoted(): void
@@ -206,7 +131,11 @@ class QuoteFlowTest extends TestCase
         $this->actingAs($intruder)->postJson("/api/orders/{$order->order_no}/decline")->assertStatus(404);
     }
 
-    public function test_admin_can_view_customer_attachment_and_result_files(): void
+    // Admin file downloads now go through the Filament panel's web route
+    // (admin.order-items.attachment / admin.order-items.result), see
+    // App\Http\Controllers\Filament\OrderItemFileController.
+
+    public function test_admin_can_download_order_item_files_via_filament_route(): void
     {
         Storage::fake('local');
 
@@ -226,16 +155,25 @@ class QuoteFlowTest extends TestCase
             'result_original_name' => 'hasil.pdf',
         ]);
 
-        $this->actingAs($admin)->get("/api/admin/orders/{$order->order_no}/items/{$item->id}/attachment")->assertOk();
-        $this->actingAs($admin)->get("/api/admin/orders/{$order->order_no}/items/{$item->id}/result")->assertOk();
+        $this->actingAs($admin)->get(route('admin.order-items.attachment', $item))->assertOk();
+        $this->actingAs($admin)->get(route('admin.order-items.result', $item))->assertOk();
     }
 
-    public function test_non_admin_cannot_view_order_files(): void
+    public function test_non_admin_cannot_download_order_item_files_via_filament_route(): void
     {
+        Storage::fake('local');
+
         $user = User::factory()->create();
         $order = $this->makeOrder($user, 'paid');
         $item = $order->items->first();
 
-        $this->actingAs($user)->get("/api/admin/orders/{$order->order_no}/items/{$item->id}/attachment")->assertForbidden();
+        $attachmentPath = 'order-attachments/naskah-test.pdf';
+        Storage::disk('local')->put($attachmentPath, 'naskah content');
+        $item->update([
+            'attachment_path' => $attachmentPath,
+            'attachment_original_name' => 'naskah.pdf',
+        ]);
+
+        $this->actingAs($user)->get(route('admin.order-items.attachment', $item))->assertForbidden();
     }
 }

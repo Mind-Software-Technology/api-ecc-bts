@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
     'slug', 'category_id', 'sort_order', 'title', 'tagline', 'description', 'points',
@@ -21,6 +22,21 @@ class Service extends Model
             'is_active' => 'boolean',
             'requires_attachment' => 'boolean',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::updating(function (Service $service) {
+            if ($service->isDirty('image_path') && $service->getOriginal('image_path')) {
+                Storage::disk('public')->delete($service->getOriginal('image_path'));
+            }
+        });
+
+        static::deleting(function (Service $service) {
+            if ($service->image_path) {
+                Storage::disk('public')->delete($service->image_path);
+            }
+        });
     }
 
     public function category(): BelongsTo
