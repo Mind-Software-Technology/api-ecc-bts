@@ -138,3 +138,31 @@ bukan restore stash.
 `$this->whenLoaded('items')` — kalau nanti field items ini ditampilkan di listing (bukan cuma di
 `show()`), berpotensi N+1 query. Belum berdampak sekarang karena listing tidak menampilkan items,
 tapi baik untuk diwaspadai kalau field itu dipakai di tampilan admin/riwayat order nanti.
+
+## 9. Field `services.price` sudah tidak dipakai — putuskan mau dibuang atau tidak
+
+**File:** `app/Models/Service.php`, `app/Http/Resources/ServiceResource.php`,
+`app/Filament/Resources/ServiceResource.php`, `database/migrations/2026_07_12_044326_create_services_table.php`
+
+Sejak alur konsultasi harga dipakai, harga tidak lagi ditentukan di katalog: `OrderController::store()`
+membuat item dengan `price_snapshot = null`, dan harga sebenarnya baru diisi admin per pesanan lewat
+`Admin\OrderController::quote()` / action "Set Harga" di panel Filament. Frontend juga sudah berhenti
+menampilkan `service.price` sama sekali (harga di halaman detail produk dan keranjang sudah dihapus).
+
+Jadi `services.price` sekarang **kolom yatim**: masih ada di database, masih dikirim API, masih bisa
+diisi admin di form Filament (`ServiceResource`, field "Harga" + kolom tabel `money('IDR')`), tapi
+tidak ada satupun konsumen yang memakainya. Risikonya bikin bingung admin — mereka mengisi harga di
+katalog dan mengira itu yang ditagihkan ke pelanggan, padahal diabaikan.
+
+**Pilihannya, tinggal pilih satu:**
+- **Buang total** — hapus field dari form + kolom tabel Filament, dari `ServiceResource` (API), dari
+  `#[Fillable]` di model, lalu migration `dropColumn('price')`. Paling bersih, tapi tidak bisa
+  mundur kalau ternyata nanti mau ada harga acuan.
+- **Simpan sebagai harga acuan internal** — kolom tetap ada, tapi di Filament diberi label jelas
+  (mis. "Harga acuan (tidak ditagihkan)") dan `->helperText()` yang menyebut harga final ditentukan
+  saat quote. Dipakai admin sebagai contekan waktu konsultasi WhatsApp. Berhenti dikirim di
+  `ServiceResource` (API) karena frontend tidak butuh.
+- **Biarkan** — tidak mengganggu fungsi apapun, cuma tetap membingungkan admin.
+
+Condong ke opsi kedua: admin tetap butuh angka pegangan saat menawar via WhatsApp, dan biayanya cuma
+label + helper text. Tapi ini keputusan produk, bukan teknis.
