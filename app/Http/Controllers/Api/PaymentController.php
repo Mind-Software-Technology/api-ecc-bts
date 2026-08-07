@@ -94,10 +94,46 @@ class PaymentController extends Controller
     public function cancel(Request $request, string $order_no)
     {
         $order = Order::findAccessibleOrFail($order_no, $request);
-        abort_if($order->status === 'paid', 422, 'Order sudah dibayar, tidak bisa dibatalkan.');
+        $payment = $this->cancelPendingPayment($order, 'dibatalkan');
+
+        DB::transaction(function () use ($payment, $order) {
+            $payment->save();
+            $order->update(['status' => 'cancelled']);
+        });
+
+        return new PaymentResource($payment->fresh());
+    }
+
+    /**
+     * Customer picked the wrong payment method — cancel the pending Midtrans
+     * transaction but, unlike cancel(), send the order back to 'pending'
+     * (not 'cancelled') so they can charge again with a different method
+     * instead of losing the whole order.
+     */
+    public function changeMethod(Request $request, string $order_no)
+    {
+        $order = Order::findAccessibleOrFail($order_no, $request);
+        $payment = $this->cancelPendingPayment($order, 'diganti');
+
+        DB::transaction(function () use ($payment, $order) {
+            $payment->save();
+            $order->update(['status' => 'pending']);
+        });
+
+        return new PaymentResource($payment->fresh());
+    }
+
+    /**
+     * Syncs the pending payment against Midtrans, cancels it there, and
+     * returns the (unsaved) updated Payment — the caller persists it inside
+     * its own transaction alongside the order status change.
+     */
+    private function cancelPendingPayment(Order $order, string $actionLabel): Payment
+    {
+        abort_if($order->status === 'paid', 422, 'Order sudah dibayar, tidak bisa '.$actionLabel.'.');
 
         $payment = $order->payments()->where('transaction_status', 'pending')->latest()->first();
-        abort_if(! $payment, 422, 'Tidak ada transaksi pending untuk dibatalkan.');
+        abort_if(! $payment, 422, 'Tidak ada transaksi pending untuk '.$actionLabel.'.');
 
         // Local status can drift from Midtrans's actual status if the webhook
         // never arrived — e.g. some payment methods (QRIS/GoPay) auto-expire
@@ -108,26 +144,23 @@ class PaymentController extends Controller
             $latest = \Midtrans\Transaction::status($payment->midtrans_order_id);
             PaymentStatusSync::apply($payment, $latest->transaction_status, $latest->fraud_status ?? null);
             $payment = $payment->fresh();
-            $order = $order->fresh();
+            $order->refresh();
         } catch (\Exception) {
             // Midtrans unreachable — fall through, the direct cancel call below still tries.
         }
 
-        abort_if($order->status === 'paid', 422, 'Order sudah dibayar, tidak bisa dibatalkan.');
+        abort_if($order->status === 'paid', 422, 'Order sudah dibayar, tidak bisa '.$actionLabel.'.');
         abort_if($payment->transaction_status !== 'pending', 422, 'Transaksi ini sudah tidak berstatus menunggu pembayaran (mis. kedaluwarsa di Midtrans). Silakan muat ulang halaman.');
 
         try {
             $response = \Midtrans\Transaction::cancel($payment->midtrans_order_id);
         } catch (\Exception $e) {
-            abort(422, 'Gagal membatalkan transaksi: '.$e->getMessage());
+            abort(422, 'Gagal '.$actionLabel.' transaksi: '.$e->getMessage());
         }
 
-        DB::transaction(function () use ($payment, $order, $response) {
-            $payment->update(['transaction_status' => $response->transaction_status ?? 'cancel']);
-            $order->update(['status' => 'cancelled']);
-        });
+        $payment->transaction_status = $response->transaction_status ?? 'cancel';
 
-        return new PaymentResource($payment->fresh());
+        return $payment;
     }
 
     private function chargeParams(Order $order, array $data, string $midtransOrderId): array
