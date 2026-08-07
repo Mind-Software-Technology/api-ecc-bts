@@ -44,7 +44,7 @@ class Order extends Model
      */
     public static function findAccessibleOrFail(string $orderNo, Request $request): self
     {
-        $order = static::where('order_no', $orderNo)->with(['items', 'payments'])->firstOrFail();
+        $order = static::where('order_no', $orderNo)->with(['items.service', 'payments'])->firstOrFail();
 
         if ($request->user()?->id !== $order->user_id) {
             throw (new ModelNotFoundException)->setModel(self::class);

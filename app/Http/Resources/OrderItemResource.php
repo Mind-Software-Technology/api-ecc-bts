@@ -19,6 +19,7 @@ class OrderItemResource extends JsonResource
             'price_snapshot' => $this->price_snapshot,
             'qty' => $this->qty,
             'line_total' => $this->line_total,
+            'requires_attachment' => (bool) ($this->service?->requires_attachment ?? false),
             'has_attachment' => $this->attachment_path !== null,
             'attachment_original_name' => $this->attachment_original_name,
             'has_result' => $this->result_path !== null,

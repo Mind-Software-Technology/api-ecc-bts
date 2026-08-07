@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\OrderItemResource;
 use App\Http\Resources\OrderResource;
 use App\Http\Resources\TestimonialResource;
 use App\Models\Cart;
@@ -19,10 +20,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class OrderController extends Controller
 {
     /**
-     * Allowed attachment mime/extensions and max size (KB) — shared between
-     * the store() validation rule and the file-storage step below.
+     * Allowed attachment mime/extensions and max size (KB) for uploadAttachment().
      */
-    private const ATTACHMENT_RULES = 'required|file|mimes:pdf,doc,docx,xls,xlsx,zip|max:10240';
+    private const ATTACHMENT_RULES = 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240';
 
     public function store(Request $request)
     {
@@ -32,47 +32,32 @@ class OrderController extends Controller
         $user = $request->user();
         $items = $cart->items()->with('service')->get();
 
-        $rules = [
+        $data = $request->validate([
             'guest_name' => $user ? 'nullable|string|max:255' : 'required|string|max:255',
             'guest_email' => $user ? 'nullable|email|max:255' : 'required|email|max:255',
             'guest_phone' => 'nullable|string|max:30',
-        ];
-        $attributes = [];
-        foreach ($items as $item) {
-            $key = "attachments.{$item->service_id}";
-            $rules[$key] = ($item->service->requires_attachment ? 'required|' : 'nullable|').'file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240';
-            $attributes[$key] = "file untuk layanan \"{$item->service->title}\"";
-        }
+        ]);
 
-        $data = $request->validate($rules, [], $attributes);
-
-        $order = DB::transaction(function () use ($cart, $items, $user, $data, $request) {
+        $order = DB::transaction(function () use ($cart, $items, $user, $data) {
             $order = Order::create([
                 'order_no' => $this->generateOrderNo(),
                 'user_id' => $user->id,
                 'guest_name' => $data['guest_name'],
                 'guest_email' => $user->email,
-                'guest_phone' => $data['guest_phone'],
+                'guest_phone' => $data['guest_phone'] ?? null,
                 'status' => 'awaiting_quote',
                 'subtotal' => null,
                 'total' => null,
             ]);
 
             foreach ($items as $item) {
-                $orderItemData = [
+                $order->items()->create([
                     'service_id' => $item->service_id,
                     'title_snapshot' => $item->service->title,
                     'price_snapshot' => null,
                     'qty' => $item->qty,
                     'line_total' => null,
-                ];
-
-                if ($file = $request->file("attachments.{$item->service_id}")) {
-                    $orderItemData['attachment_path'] = $file->store('order-attachments', 'local');
-                    $orderItemData['attachment_original_name'] = $file->getClientOriginalName();
-                }
-
-                $order->items()->create($orderItemData);
+                ]);
             }
 
             $cart->items()->delete();
@@ -86,7 +71,39 @@ class OrderController extends Controller
         return new OrderResource($order);
     }
 
-    
+    /**
+     * Customer uploads/replaces the attachment for one order item — a
+     * separate step from store() now, done after the WhatsApp consultation
+     * (order already exists by then, admin prices it off the item list).
+     */
+    public function uploadAttachment(Request $request, string $order_no, int $item)
+    {
+        $order = Order::findAccessibleOrFail($order_no, $request);
+        abort_unless(
+            in_array($order->status, ['awaiting_quote', 'quoted']),
+            422,
+            'Lampiran hanya bisa diunggah selama pesanan belum disetujui/dibayar.',
+        );
+
+        $orderItem = $order->items->firstWhere('id', $item);
+        abort_if(! $orderItem, 404);
+
+        $data = $request->validate(['attachment' => self::ATTACHMENT_RULES]);
+
+        if ($orderItem->attachment_path) {
+            Storage::disk('local')->delete($orderItem->attachment_path);
+        }
+
+        $file = $data['attachment'];
+        $orderItem->update([
+            'attachment_path' => $file->store('order-attachments', 'local'),
+            'attachment_original_name' => $file->getClientOriginalName(),
+        ]);
+
+        return new OrderItemResource($orderItem);
+    }
+
+
     public function downloadResult(Request $request, string $order_no, int $item)
     {
         return $this->downloadOrderItemFile($request, $order_no, $item, 'result');
@@ -121,7 +138,6 @@ class OrderController extends Controller
 
         $data = $request->validate([
             'guest_name' => 'required|string|max:255',
-            'guest_phone' => 'required|string|max:30',
         ]);
 
         $order->update($data);
@@ -196,7 +212,7 @@ class OrderController extends Controller
 
         $orders = Order::where('user_id', $request->user()->id)
             ->withExists('testimonial')
-            ->with('items')
+            ->with('items.service')
             ->latest()->paginate($limit, ['*'], 'page', $page);
 
         return [

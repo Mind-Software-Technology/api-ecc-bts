@@ -1,17 +1,6 @@
 <?php
 
 use App\Http\Controllers\Api\AboutStatsController;
-use App\Http\Controllers\Api\Admin\AdvantageController as AdminAdvantageController;
-use App\Http\Controllers\Api\Admin\CategoryController as AdminCategoryController;
-use App\Http\Controllers\Api\Admin\ContactMessageController as AdminContactMessageController;
-use App\Http\Controllers\Api\Admin\EventController as AdminEventController;
-use App\Http\Controllers\Api\Admin\FaqController as AdminFaqController;
-use App\Http\Controllers\Api\Admin\OrderController as AdminOrderController;
-use App\Http\Controllers\Api\Admin\PaymentController as AdminPaymentController;
-use App\Http\Controllers\Api\Admin\ProcessStepController as AdminProcessStepController;
-use App\Http\Controllers\Api\Admin\ServiceController as AdminServiceController;
-use App\Http\Controllers\Api\Admin\SiteConfigController as AdminSiteConfigController;
-use App\Http\Controllers\Api\Admin\TestimonialController as AdminTestimonialController;
 use App\Http\Controllers\Api\AdvantageController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CartController;
@@ -62,6 +51,7 @@ Route::get('orders/{order_no}', [OrderController::class, 'show']);
 Route::patch('orders/{order_no}', [OrderController::class, 'update']);
 Route::get('orders', [OrderController::class, 'index'])->middleware('throttle:20,1');
 Route::get('orders/{order_no}/items/{item}/attachment', [OrderController::class, 'downloadAttachment']);
+Route::post('orders/{order_no}/items/{item}/attachment', [OrderController::class, 'uploadAttachment']);
 Route::get('orders/{order_no}/items/{item}/result', [OrderController::class, 'downloadResult']);
 Route::post('orders/{order_no}/testimonial', [OrderController::class, 'submitTestimonial']);
 Route::post('orders/{order_no}/accept-quote', [OrderController::class, 'acceptQuote']);
@@ -104,29 +94,4 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('payments', [PaymentController::class, 'store'])->middleware('throttle:10,1');
     Route::get('payments/{order_no}/status', [PaymentController::class, 'status']);
     Route::post('payments/{order_no}/cancel', [PaymentController::class, 'cancel']);
-});
-
-// Admin — butuh login + role admin
-Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function () {
-    Route::apiResource('categories', AdminCategoryController::class)->except('show');
-    Route::apiResource('services', AdminServiceController::class)->except('show');
-    Route::get('testimonials', [AdminTestimonialController::class, 'index']);
-    Route::patch('testimonials/{testimonial}/toggle-active', [AdminTestimonialController::class, 'toggleActive']);
-    Route::apiResource('faqs', AdminFaqController::class)->except('show');
-    Route::apiResource('advantages', AdminAdvantageController::class)->except('show');
-    Route::apiResource('process-steps', AdminProcessStepController::class)->except('show');
-    Route::apiResource('events', AdminEventController::class)->except('show');
-    Route::put('site-config', [AdminSiteConfigController::class, 'update']);
-
-    Route::get('orders', [AdminOrderController::class, 'index']);
-    Route::get('analytics/revenue', [AdminOrderController::class, 'revenue']);
-    Route::get('orders/{order_no}', [AdminOrderController::class, 'show']);
-    Route::post('orders/{order_no}/items/{item}/result', [AdminOrderController::class, 'uploadResult']);
-    Route::post('orders/{order_no}/quote', [AdminOrderController::class, 'quote']);
-    Route::get('orders/{order_no}/items/{item}/attachment', [AdminOrderController::class, 'attachment']);
-    Route::get('orders/{order_no}/items/{item}/result', [AdminOrderController::class, 'result']);
-    Route::get('payments', [AdminPaymentController::class, 'index']);
-    Route::get('payments/{payment}', [AdminPaymentController::class, 'show']);
-    Route::get('contact-messages', [AdminContactMessageController::class, 'index']);
-    Route::delete('contact-messages/{contact_message}', [AdminContactMessageController::class, 'destroy']);
 });

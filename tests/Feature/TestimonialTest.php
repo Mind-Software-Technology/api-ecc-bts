@@ -162,41 +162,7 @@ class TestimonialTest extends TestCase
         $this->assertFalse($names->contains('Sembunyi'));
     }
 
-    public function test_admin_can_toggle_visibility_but_not_edit_or_delete(): void
-    {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $testimonial = Testimonial::create(['name' => 'Budi', 'role' => 'Alumni', 'text' => 'Bagus', 'rating' => 5, 'sort_order' => 1, 'is_active' => true]);
-
-        $toggle = $this->actingAs($admin)->patchJson("/api/admin/testimonials/{$testimonial->id}/toggle-active");
-        $toggle->assertOk();
-        $toggle->assertJsonPath('is_active', false);
-
-        // Same URI as the GET index route, different verb -> 405, not 404.
-        $this->actingAs($admin)->postJson('/api/admin/testimonials', ['name' => 'Fake'])->assertStatus(405);
-        // No route at all for these URIs anymore -> 404.
-        $this->actingAs($admin)->putJson("/api/admin/testimonials/{$testimonial->id}", ['name' => 'Diedit'])->assertNotFound();
-        $this->actingAs($admin)->deleteJson("/api/admin/testimonials/{$testimonial->id}")->assertNotFound();
-    }
-
-    public function test_admin_index_includes_legacy_and_real_testimonials_with_context(): void
-    {
-        $admin = User::factory()->create(['role' => 'admin']);
-        $user = User::factory()->create();
-        $order = $this->makeOrder($user, 'paid', now());
-
-        Testimonial::create(['name' => 'Legacy', 'role' => 'Alumni', 'text' => 'Lama', 'rating' => 5, 'sort_order' => 1]);
-        Testimonial::create(['name' => $user->name, 'role' => 'Mahasiswa', 'text' => 'Baru', 'rating' => 5, 'sort_order' => 2, 'user_id' => $user->id, 'order_id' => $order->id]);
-
-        $response = $this->actingAs($admin)->getJson('/api/admin/testimonials');
-
-        $response->assertOk();
-        $data = collect($response->json('data'));
-
-        $legacy = $data->firstWhere('name', 'Legacy');
-        $real = $data->firstWhere('name', $user->name);
-
-        $this->assertNull($legacy['order_no']);
-        $this->assertSame($order->order_no, $real['order_no']);
-        $this->assertSame($user->email, $real['user_email']);
-    }
+    // Admin moderation (toggle visibility, no create/edit/delete) now lives in
+    // the Filament panel — see App\Filament\Resources\TestimonialResource and
+    // FilamentAdminSmokeTest::test_admin_can_toggle_testimonial_visibility.
 }
