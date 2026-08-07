@@ -22,7 +22,7 @@ class OrderController extends Controller
     /**
      * Allowed attachment mime/extensions and max size (KB) for uploadAttachment().
      */
-    private const ATTACHMENT_RULES = 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240';
+    private const ATTACHMENT_RULES = 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:51200';
 
     public function store(Request $request)
     {
@@ -30,13 +30,27 @@ class OrderController extends Controller
         abort_if(! $cart || $cart->items()->count() === 0, 422, 'Cart is empty.');
 
         $user = $request->user();
-        $items = $cart->items()->with('service')->get();
 
         $data = $request->validate([
             'guest_name' => $user ? 'nullable|string|max:255' : 'required|string|max:255',
             'guest_email' => $user ? 'nullable|email|max:255' : 'required|email|max:255',
             'guest_phone' => 'nullable|string|max:30',
+            'cart_item_ids' => 'sometimes|array',
+            'cart_item_ids.*' => 'integer',
         ]);
+
+        // Checking out only some cart items is optional — omit cart_item_ids
+        // entirely to keep the old "checkout everything" behavior. Scoped to
+        // $cart->items() so an id from someone else's cart just matches
+        // nothing, same isolation CartItemController already relies on.
+        $items = $cart->items()
+            ->when(
+                filled($data['cart_item_ids'] ?? null),
+                fn ($query) => $query->whereIn('id', $data['cart_item_ids']),
+            )
+            ->with('service')
+            ->get();
+        abort_if($items->isEmpty(), 422, 'Tidak ada layanan yang dipilih untuk di-checkout.');
 
         $order = DB::transaction(function () use ($cart, $items, $user, $data) {
             $order = Order::create([
@@ -60,7 +74,7 @@ class OrderController extends Controller
                 ]);
             }
 
-            $cart->items()->delete();
+            $cart->items()->whereIn('id', $items->pluck('id'))->delete();
 
             return $order;
         });
