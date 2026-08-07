@@ -12,7 +12,6 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
 
@@ -74,6 +73,8 @@ class OrderResource extends Resource
         return $table
             ->striped()
             ->defaultSort('created_at', 'desc')
+            // Pesanan baru harus segera terlihat tanpa admin me-refresh halaman.
+            ->poll('2s')
             ->columns([
                 Tables\Columns\TextColumn::make('order_no')
                     ->label('No. Pesanan')
