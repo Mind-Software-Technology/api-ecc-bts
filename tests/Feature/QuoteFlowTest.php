@@ -155,8 +155,8 @@ class QuoteFlowTest extends TestCase
             'result_original_name' => 'hasil.pdf',
         ]);
 
-        $this->actingAs($admin)->get(route('admin.order-items.attachment', $item))->assertOk();
-        $this->actingAs($admin)->get(route('admin.order-items.result', $item))->assertOk();
+        $this->actingAs($admin, 'admin')->get(route('admin.order-items.attachment', $item))->assertOk();
+        $this->actingAs($admin, 'admin')->get(route('admin.order-items.result', $item))->assertOk();
     }
 
     public function test_non_admin_cannot_download_order_item_files_via_filament_route(): void
@@ -174,6 +174,12 @@ class QuoteFlowTest extends TestCase
             'attachment_original_name' => 'naskah.pdf',
         ]);
 
-        $this->actingAs($user)->get(route('admin.order-items.attachment', $item))->assertForbidden();
+        // Sesi pelanggan hidup di guard 'web', bukan 'admin' — jadi ditolak
+        // sebagai tamu, bukan lolos ke pengecekan role.
+        $this->actingAs($user)->get(route('admin.order-items.attachment', $item))->assertUnauthorized();
+
+        // Lapis kedua: seandainya ada yang berhasil masuk guard 'admin' tanpa
+        // role admin, EnsureUserIsAdmin tetap menolak.
+        $this->actingAs($user, 'admin')->get(route('admin.order-items.attachment', $item))->assertForbidden();
     }
 }

@@ -8,9 +8,9 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class EnsureUserIsAdmin
 {
-    public function handle(Request $request, Closure $next)
+    public function handle(Request $request, Closure $next, ?string $guard = null)
     {
-        if ($request->user()?->role !== 'admin') {
+        if ($request->user($guard)?->role !== 'admin') {
             throw new AccessDeniedHttpException('Forbidden.');
         }
 

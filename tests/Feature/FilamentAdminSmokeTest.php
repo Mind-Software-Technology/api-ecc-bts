@@ -134,7 +134,7 @@ class FilamentAdminSmokeTest extends TestCase
         ];
 
         foreach ($pages as $page) {
-            $this->actingAs($admin)->get($page)->assertOk();
+            $this->actingAs($admin, 'admin')->get($page)->assertOk();
         }
     }
 
@@ -142,7 +142,32 @@ class FilamentAdminSmokeTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'user']);
 
-        $this->actingAs($user)->get('/admin')->assertForbidden();
+        $this->actingAs($user, 'admin')->get('/admin')->assertForbidden();
+    }
+
+    public function test_customer_session_does_not_leak_into_admin_panel(): void
+    {
+        // Frontend dan API sedomain, jadi cookie sesi pelanggan ikut terkirim ke
+        // /admin. Panel harus memperlakukannya sebagai tamu (arahkan ke login),
+        // bukan menolak dengan 403 buntu.
+        $customer = User::factory()->create(['role' => 'user']);
+
+        $this->actingAs($customer, 'web')
+            ->get('/admin')
+            ->assertRedirect('/admin/login');
+    }
+
+    public function test_admin_panel_session_is_separate_from_customer_session(): void
+    {
+        // Admin yang sedang login sebagai pelanggan di frontend tetap harus bisa
+        // memakai panel — kedua sesi hidup berdampingan di guard berbeda.
+        $admin = User::factory()->create(['role' => 'admin']);
+        $customer = User::factory()->create(['role' => 'user']);
+
+        $this->actingAs($customer, 'web')
+            ->actingAs($admin, 'admin')
+            ->get('/admin')
+            ->assertOk();
     }
 
     public function test_admin_can_set_quote_price_via_order_view_action(): void
@@ -150,7 +175,7 @@ class FilamentAdminSmokeTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin']);
         ['order' => $order, 'orderItem' => $orderItem] = $this->seedFixtures();
 
-        $this->actingAs($admin);
+        $this->actingAs($admin, 'admin');
 
         Livewire::test(ViewOrder::class, ['record' => $order->getKey()])
             ->callAction('quote', data: [
@@ -170,7 +195,7 @@ class FilamentAdminSmokeTest extends TestCase
         $testimonial = Testimonial::first();
         $wasActive = (bool) $testimonial->is_active;
 
-        $this->actingAs($admin);
+        $this->actingAs($admin, 'admin');
 
         Livewire::test(ListTestimonials::class)
             ->callTableAction('toggleActive', $testimonial)

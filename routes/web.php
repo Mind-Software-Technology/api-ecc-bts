@@ -7,7 +7,9 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::middleware(['web', 'auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+// Guard 'admin' — sama dengan yang dipakai panel Filament, bukan guard 'web'
+// milik sesi pelanggan.
+Route::middleware(['web', 'auth:admin', 'admin:admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/order-items/{orderItem}/attachment', [OrderItemFileController::class, 'attachment'])
         ->name('order-items.attachment');
     Route::get('/order-items/{orderItem}/result', [OrderItemFileController::class, 'result'])

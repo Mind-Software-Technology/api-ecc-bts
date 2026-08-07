@@ -42,6 +42,13 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Panel Filament pakai guard terpisah supaya sesi pelanggan di frontend
+        // (yang cookie-nya sedomain dengan API) tidak dianggap sesi admin.
+        'admin' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
     ],
 
     /*
