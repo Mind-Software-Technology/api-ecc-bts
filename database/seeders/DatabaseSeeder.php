@@ -128,7 +128,7 @@ class DatabaseSeeder extends Seeder
         }
 
         SiteConfig::create([
-            'brand_name' => 'ECC-BTS',
+            'brand_name' => 'ECC',
             'logo_url' => null,
             'contact_email' => 'ecc-bts@email.com',
             'contact_phone' => '+62 812-0000-0000',

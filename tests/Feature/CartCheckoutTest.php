@@ -318,4 +318,57 @@ class CartCheckoutTest extends TestCase
         $crossAccess = $this->actingAs($userB)->patchJson("/api/cart/items/{$itemAId}", ['qty' => 5]);
         $crossAccess->assertStatus(404);
     }
+
+    public function test_checkout_can_select_a_subset_of_cart_items(): void
+    {
+        $user = User::factory()->create();
+        $serviceA = $this->makeService(requiresAttachment: false);
+        $serviceB = $this->makeService(requiresAttachment: false);
+        $serviceC = $this->makeService(requiresAttachment: false);
+
+        $this->actingAs($user)->postJson('/api/cart/items', ['service_id' => $serviceA->id, 'qty' => 1]);
+        $this->actingAs($user)->postJson('/api/cart/items', ['service_id' => $serviceB->id, 'qty' => 1]);
+        $this->actingAs($user)->postJson('/api/cart/items', ['service_id' => $serviceC->id, 'qty' => 1]);
+
+        $cartItems = collect($this->actingAs($user)->getJson('/api/cart')->json('items'));
+        $itemAId = $cartItems->firstWhere('service_id', $serviceA->id)['id'];
+        $itemBId = $cartItems->firstWhere('service_id', $serviceB->id)['id'];
+
+        $response = $this->actingAs($user)->postJson('/api/orders', [
+            'guest_name' => 'Budi',
+            'cart_item_ids' => [$itemAId, $itemBId],
+        ]);
+
+        $response->assertCreated();
+        $this->assertCount(2, $response->json('items'));
+        $titles = collect($response->json('items'))->pluck('title_snapshot');
+        $this->assertTrue($titles->contains($serviceA->title));
+        $this->assertTrue($titles->contains($serviceB->title));
+
+        $cartAfter = $this->actingAs($user)->getJson('/api/cart')->json('items');
+        $this->assertCount(1, $cartAfter);
+        $this->assertSame($serviceC->id, $cartAfter[0]['service_id']);
+    }
+
+    public function test_checkout_ignores_cart_item_ids_belonging_to_another_user(): void
+    {
+        $owner = User::factory()->create();
+        $intruder = User::factory()->create();
+        $service = $this->makeService(requiresAttachment: false);
+
+        $ownerItemId = $this->actingAs($owner)->postJson('/api/cart/items', ['service_id' => $service->id, 'qty' => 1])->json('items.0.id');
+        $this->actingAs($intruder)->postJson('/api/cart/items', ['service_id' => $service->id, 'qty' => 1]);
+
+        // Intruder tries to check out using an id from the owner's cart —
+        // it simply doesn't match anything in the intruder's own cart, so
+        // this 422s as "nothing selected" rather than pulling someone
+        // else's item into the intruder's order.
+        $response = $this->actingAs($intruder)->postJson('/api/orders', [
+            'guest_name' => 'Intruder',
+            'cart_item_ids' => [$ownerItemId],
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertDatabaseHas('cart_items', ['id' => $ownerItemId]);
+    }
 }

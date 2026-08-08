@@ -85,7 +85,7 @@ class ItemsRelationManager extends RelationManager
                                 'image/jpeg',
                                 'image/png',
                             ])
-                            ->maxSize(10240)
+                            ->maxSize(51200)
                             ->required(),
                     ])
                     ->action(function (array $data, $record): void {
