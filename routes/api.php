@@ -37,6 +37,7 @@ Route::get('process-steps', [ProcessStepController::class, 'index']);
 Route::get('site-config', [SiteConfigController::class, 'show']);
 
 Route::get('events', [EventController::class, 'index']);
+Route::get('events/{id}', [EventController::class, 'show'])->whereNumber('id');
 
 Route::post('contact', [ContactController::class, 'store'])->middleware('throttle:10,1');
 

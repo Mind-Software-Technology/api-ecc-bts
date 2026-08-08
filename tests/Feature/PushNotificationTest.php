@@ -97,9 +97,27 @@ class PushNotificationTest extends TestCase
         // opsi protokol TTL/urgency dan tidak pernah sampai ke browser).
         $payload = $notification->toWebPush($user, $notification)->toArray();
         $this->assertSame("event-{$event->id}", $payload['tag']);
-        $this->assertSame('/kegiatan', $payload['data']['url']);
+        $this->assertSame("/kegiatan/{$event->id}", $payload['data']['url']);
         $this->assertNotEmpty($payload['title']);
         $this->assertNotEmpty($payload['body']);
+    }
+
+    public function test_event_detail_is_public_but_hides_deactivated_events(): void
+    {
+        $event = $this->makeEvent(isActive: true);
+
+        $this->getJson("/api/events/{$event->id}")
+            ->assertOk()
+            // Tanpa pembungkus "data" — AppServiceProvider memanggil
+            // JsonResource::withoutWrapping().
+            ->assertJsonPath('title', 'Workshop Statistik')
+            ->assertJsonPath('location', 'Jakarta');
+
+        // Dinonaktifkan admin harus hilang dari detail juga, bukan cuma daftar.
+        $event->update(['is_active' => false]);
+        $this->getJson("/api/events/{$event->id}")->assertNotFound();
+
+        $this->getJson('/api/events/999999')->assertNotFound();
     }
 
     public function test_customer_can_register_and_remove_a_push_subscription(): void
@@ -143,7 +161,7 @@ class PushNotificationTest extends TestCase
         $response = $this->actingAs($customer)->getJson('/api/notifications')->assertOk();
         $response->assertJsonPath('unread_count', 1);
         $response->assertJsonPath('data.0.type', 'new_event');
-        $response->assertJsonPath('data.0.url', '/kegiatan');
+        $response->assertJsonPath('data.0.url', '/kegiatan/'.Event::first()->id);
         $response->assertJsonPath('data.0.read', false);
 
         // Notifikasi milik orang lain tidak boleh bocor lintas akun.

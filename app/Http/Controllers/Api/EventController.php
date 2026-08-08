@@ -23,4 +23,15 @@ class EventController extends Controller
 
         return ['data' => EventResource::collection($events)];
     }
+
+    public function show(int $id)
+    {
+        // is_active ikut disaring: kegiatan yang dinonaktifkan admin harus
+        // hilang dari detail juga, bukan cuma dari daftar.
+        $event = Event::with('category')
+            ->where('is_active', true)
+            ->findOrFail($id);
+
+        return new EventResource($event);
+    }
 }

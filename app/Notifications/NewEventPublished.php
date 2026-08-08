@@ -44,7 +44,7 @@ class NewEventPublished extends Notification implements ShouldQueue
         return [
             'type' => 'new_event',
             'message' => $this->message(),
-            'url' => '/kegiatan',
+            'url' => "/kegiatan/{$this->event->id}",
         ];
     }
 
@@ -57,7 +57,7 @@ class NewEventPublished extends Notification implements ShouldQueue
             // `tag` per kegiatan: notifikasi ulang untuk kegiatan yang sama
             // menggantikan popup lama, bukan menumpuk.
             ->tag("event-{$this->event->id}")
-            ->data(['url' => '/kegiatan']);
+            ->data(['url' => "/kegiatan/{$this->event->id}"]);
     }
 
     private function message(): string
