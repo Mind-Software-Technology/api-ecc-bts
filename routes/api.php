@@ -9,10 +9,12 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\FaqController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PaymentNotificationController;
 use App\Http\Controllers\Api\ProcessStepController;
+use App\Http\Controllers\Api\PushSubscriptionController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\SiteConfigController;
 use App\Http\Controllers\Api\StatController;
@@ -89,8 +91,19 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('orders', [OrderController::class, 'store']);
     Route::get('orders/{order_no}', [OrderController::class, 'show']);
-    Route::get('orders', [OrderController::class, 'index'])->middleware('throttle:20,1');
+    // throttle:40 — frontend mem-polling daftar ini tiap 2 detik di halaman
+    // riwayat pembayaran (30 request/menit), jadi batas 20 yang lama membuat
+    // sepertiga polling kena 429.
+    Route::get('orders', [OrderController::class, 'index'])->middleware('throttle:40,1');
     Route::get('orders/{order_no}/items/{item_id}/attachment', [OrderController::class, 'downloadAttachment']);
+
+    // Lonceng notifikasi — di-polling tiap 2 detik sebagai cadangan untuk
+    // pelanggan yang menolak izin notifikasi browser.
+    Route::get('notifications', [NotificationController::class, 'index'])->middleware('throttle:40,1');
+    Route::post('notifications/read', [NotificationController::class, 'markAllRead']);
+
+    Route::post('push-subscriptions', [PushSubscriptionController::class, 'store']);
+    Route::delete('push-subscriptions', [PushSubscriptionController::class, 'destroy']);
 
     Route::post('payments', [PaymentController::class, 'store'])->middleware('throttle:10,1');
     Route::get('payments/{order_no}/status', [PaymentController::class, 'status']);

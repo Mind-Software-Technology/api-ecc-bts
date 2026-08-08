@@ -9,7 +9,6 @@ use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
@@ -104,8 +103,11 @@ class ItemsRelationManager extends RelationManager
                             'result_delivered_at' => now(),
                         ]);
 
-                        NotificationFacade::route('mail', $record->order->guest_email)
-                            ->notify(new OrderResultReady($record->order, $record->fresh(), $isRevision));
+                        // Notify User, bukan route('mail', ...): notifikasi on-demand
+                        // tidak punya alamat untuk channel database maupun web push.
+                        $record->order->user?->notify(
+                            new OrderResultReady($record->order, $record->fresh(), $isRevision)
+                        );
 
                         Notification::make()
                             ->title('Hasil layanan berhasil diunggah')

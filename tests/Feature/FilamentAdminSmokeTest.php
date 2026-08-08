@@ -17,7 +17,9 @@ use App\Models\Service;
 use App\Models\SiteConfig;
 use App\Models\Testimonial;
 use App\Models\User;
+use App\Notifications\OrderQuoteReady;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -173,6 +175,8 @@ class FilamentAdminSmokeTest extends TestCase
 
     public function test_admin_can_set_quote_price_via_order_view_action(): void
     {
+        Notification::fake();
+
         $admin = User::factory()->create(['role' => 'admin']);
         ['order' => $order, 'orderItem' => $orderItem] = $this->seedFixtures();
 
@@ -187,6 +191,10 @@ class FilamentAdminSmokeTest extends TestCase
         $order->refresh();
         $this->assertSame('quoted', $order->status);
         $this->assertSame(150000, $order->total);
+
+        // Dikirim ke User pemilik pesanan, bukan lewat route('mail', ...) —
+        // notifikasi on-demand tidak punya target untuk lonceng dan web push.
+        Notification::assertSentTo($order->user, OrderQuoteReady::class);
     }
 
     public function test_table_polling_pauses_while_an_action_modal_is_open(): void

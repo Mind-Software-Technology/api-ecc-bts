@@ -6,6 +6,8 @@ use App\Models\Order;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use NotificationChannels\WebPush\WebPushChannel;
+use NotificationChannels\WebPush\WebPushMessage;
 
 class OrderQuoteReady extends Notification
 {
@@ -16,11 +18,44 @@ class OrderQuoteReady extends Notification
     ) {}
 
     /**
+     * ponytail: sengaja tidak ShouldQueue. Menyasar satu pelanggan, jadi
+     * biayanya kecil, dan tetap sinkron berarti email penawaran tidak
+     * bergantung pada worker antrian yang hidup di shared hosting.
+     *
      * @return array<int, string>
      */
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['mail', 'database', WebPushChannel::class];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function toDatabase(object $notifiable): array
+    {
+        return [
+            'type' => 'order_quoted',
+            'message' => $this->message(),
+            'url' => '/riwayat-pembayaran',
+        ];
+    }
+
+    public function toWebPush(object $notifiable, Notification $notification): WebPushMessage
+    {
+        return (new WebPushMessage)
+            ->title('Penawaran Harga Siap — ECC-BTS')
+            ->body($this->message())
+            ->icon('/images/logo.png')
+            ->tag("order-{$this->order->order_no}")
+            ->data(['url' => '/riwayat-pembayaran']);
+    }
+
+    private function message(): string
+    {
+        $total = 'Rp '.number_format($this->order->total, 0, ',', '.');
+
+        return "Pesanan {$this->order->order_no} sudah diberi harga {$total} — silakan lanjutkan pembayaran.";
     }
 
     public function toMail(object $notifiable): MailMessage

@@ -7,6 +7,8 @@ use App\Models\OrderItem;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use NotificationChannels\WebPush\WebPushChannel;
+use NotificationChannels\WebPush\WebPushMessage;
 
 class OrderResultReady extends Notification
 {
@@ -19,11 +21,42 @@ class OrderResultReady extends Notification
     ) {}
 
     /**
+     * ponytail: sengaja tidak ShouldQueue — alasan sama dengan OrderQuoteReady.
+     *
      * @return array<int, string>
      */
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['mail', 'database', WebPushChannel::class];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function toDatabase(object $notifiable): array
+    {
+        return [
+            'type' => 'order_result',
+            'message' => $this->message(),
+            'url' => '/riwayat-pembayaran',
+        ];
+    }
+
+    public function toWebPush(object $notifiable, Notification $notification): WebPushMessage
+    {
+        return (new WebPushMessage)
+            ->title($this->isRevision ? 'Hasil Diperbarui — ECC-BTS' : 'Hasil Siap — ECC-BTS')
+            ->body($this->message())
+            ->icon('/images/logo.png')
+            ->tag("result-{$this->orderItem->id}")
+            ->data(['url' => '/riwayat-pembayaran']);
+    }
+
+    private function message(): string
+    {
+        return $this->isRevision
+            ? "Hasil untuk \"{$this->orderItem->title_snapshot}\" pada pesanan {$this->order->order_no} telah diperbarui."
+            : "Hasil untuk \"{$this->orderItem->title_snapshot}\" pada pesanan {$this->order->order_no} sudah siap — silakan unduh.";
     }
 
     public function toMail(object $notifiable): MailMessage

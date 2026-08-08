@@ -10,7 +10,6 @@ use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Notification as NotificationFacade;
 
 class ViewOrder extends ViewRecord
 {
@@ -50,7 +49,9 @@ class ViewOrder extends ViewRecord
                     });
 
                     $order->refresh()->load('items');
-                    NotificationFacade::route('mail', $order->guest_email)->notify(new OrderQuoteReady($order));
+                    // Notify User, bukan route('mail', ...): notifikasi on-demand
+                    // tidak punya alamat untuk channel database maupun web push.
+                    $order->user?->notify(new OrderQuoteReady($order));
 
                     Notification::make()
                         ->title('Harga pesanan berhasil disimpan')

@@ -14,7 +14,6 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Notification as NotificationFacade;
 
 class OrderResource extends Resource
 {
@@ -167,7 +166,9 @@ class OrderResource extends Resource
                 });
 
                 $record->refresh()->load('items');
-                NotificationFacade::route('mail', $record->guest_email)->notify(new OrderQuoteReady($record));
+                // Notify User, bukan route('mail', ...): notifikasi on-demand
+                // tidak punya alamat untuk channel database maupun web push.
+                $record->user?->notify(new OrderQuoteReady($record));
 
                 Notification::make()
                     ->title('Harga pesanan berhasil disimpan')
