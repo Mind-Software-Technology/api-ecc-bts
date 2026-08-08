@@ -9,6 +9,8 @@ use App\Models\Payment;
 use App\Support\PaymentStatusSync;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Midtrans\CoreApi;
+use Midtrans\Transaction;
 
 class PaymentController extends Controller
 {
@@ -28,7 +30,7 @@ class PaymentController extends Controller
         $midtransOrderId = $order->order_no.'-'.($order->payments()->count() + 1);
 
         try {
-            $response = \Midtrans\CoreApi::charge($this->chargeParams($order, $data, $midtransOrderId));
+            $response = CoreApi::charge($this->chargeParams($order, $data, $midtransOrderId));
         } catch (\Exception $e) {
             abort(422, 'Gagal memproses pembayaran: '.$e->getMessage());
         }
@@ -80,7 +82,7 @@ class PaymentController extends Controller
         // sticking on "awaiting_payment" forever.
         if (! in_array($payment->transaction_status, PaymentStatusSync::TERMINAL_STATUSES)) {
             try {
-                $response = \Midtrans\Transaction::status($payment->midtrans_order_id);
+                $response = Transaction::status($payment->midtrans_order_id);
                 PaymentStatusSync::apply($payment, $response->transaction_status, $response->fraud_status ?? null);
                 $payment = $payment->fresh();
             } catch (\Exception) {
@@ -141,7 +143,7 @@ class PaymentController extends Controller
         // up. Sync first so we don't call Transaction::cancel() on something
         // Midtrans already closed (that call 412s with a confusing raw error).
         try {
-            $latest = \Midtrans\Transaction::status($payment->midtrans_order_id);
+            $latest = Transaction::status($payment->midtrans_order_id);
             PaymentStatusSync::apply($payment, $latest->transaction_status, $latest->fraud_status ?? null);
             $payment = $payment->fresh();
             $order->refresh();
@@ -153,7 +155,7 @@ class PaymentController extends Controller
         abort_if($payment->transaction_status !== 'pending', 422, 'Transaksi ini sudah tidak berstatus menunggu pembayaran (mis. kedaluwarsa di Midtrans). Silakan muat ulang halaman.');
 
         try {
-            $response = \Midtrans\Transaction::cancel($payment->midtrans_order_id);
+            $response = Transaction::cancel($payment->midtrans_order_id);
         } catch (\Exception $e) {
             abort(422, 'Gagal '.$actionLabel.' transaksi: '.$e->getMessage());
         }

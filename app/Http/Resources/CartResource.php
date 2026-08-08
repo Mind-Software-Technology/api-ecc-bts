@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Collection;
 
 class CartResource extends JsonResource
 {
@@ -13,7 +14,7 @@ class CartResource extends JsonResource
     public function toArray(Request $request): array
     {
         $items = $this->whenLoaded('items');
-        $total = $items instanceof \Illuminate\Support\Collection
+        $total = $items instanceof Collection
             ? $items->sum(fn ($item) => $item->service->price * $item->qty)
             : 0;
 

@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Order;
+use Carbon\Carbon;
 use Filament\Widgets\ChartWidget;
 
 class RevenueChartWidget extends ChartWidget
@@ -42,7 +43,7 @@ class RevenueChartWidget extends ChartWidget
                     'fill' => true,
                 ],
             ],
-            'labels' => $months->map(fn ($key) => \Carbon\Carbon::createFromFormat('Y-m', $key)->translatedFormat('M Y'))->values(),
+            'labels' => $months->map(fn ($key) => Carbon::createFromFormat('Y-m', $key)->translatedFormat('M Y'))->values(),
         ];
     }
 

@@ -117,7 +117,6 @@ class OrderController extends Controller
         return new OrderItemResource($orderItem);
     }
 
-
     public function downloadResult(Request $request, string $order_no, int $item)
     {
         return $this->downloadOrderItemFile($request, $order_no, $item, 'result');

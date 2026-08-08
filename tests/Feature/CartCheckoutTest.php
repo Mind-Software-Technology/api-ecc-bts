@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Category;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Service;
 use App\Models\User;
 use App\Notifications\NewQuoteRequest;
@@ -197,7 +198,7 @@ class CartCheckoutTest extends TestCase
         $this->actingAs($user)->post($uploadUrl, [
             'attachment' => UploadedFile::fake()->create('pertama.pdf', 100, 'application/pdf'),
         ])->assertOk();
-        $firstPath = \App\Models\OrderItem::find($itemId)->attachment_path;
+        $firstPath = OrderItem::find($itemId)->attachment_path;
         Storage::disk('local')->assertExists($firstPath);
 
         $response = $this->actingAs($user)->post($uploadUrl, [
