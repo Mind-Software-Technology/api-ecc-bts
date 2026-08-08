@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\ContactMessageResource\Pages;
 use App\Models\ContactMessage;
+use App\Support\TablePolling;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -51,7 +52,8 @@ class ContactMessageResource extends Resource
             ->striped()
             ->defaultSort('created_at', 'desc')
             // Pesan kontak masuk kapan saja dan butuh balasan cepat.
-            ->poll('2s')
+            // Berhenti selama modal terbuka — lihat TablePolling.
+            ->poll(TablePolling::whileIdle())
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nama')

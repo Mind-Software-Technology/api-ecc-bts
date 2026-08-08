@@ -6,6 +6,7 @@ use App\Filament\Resources\OrderResource\Pages;
 use App\Filament\Resources\OrderResource\RelationManagers;
 use App\Models\Order;
 use App\Notifications\OrderQuoteReady;
+use App\Support\TablePolling;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -74,7 +75,8 @@ class OrderResource extends Resource
             ->striped()
             ->defaultSort('created_at', 'desc')
             // Pesanan baru harus segera terlihat tanpa admin me-refresh halaman.
-            ->poll('2s')
+            // Berhenti selama modal (mis. "Set Harga") terbuka — lihat TablePolling.
+            ->poll(TablePolling::whileIdle())
             ->columns([
                 Tables\Columns\TextColumn::make('order_no')
                     ->label('No. Pesanan')

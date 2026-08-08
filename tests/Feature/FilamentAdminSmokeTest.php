@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\OrderResource\Pages\ListOrders;
 use App\Filament\Resources\OrderResource\Pages\ViewOrder;
 use App\Filament\Resources\TestimonialResource\Pages\ListTestimonials;
 use App\Models\Advantage;
@@ -186,6 +187,26 @@ class FilamentAdminSmokeTest extends TestCase
         $order->refresh();
         $this->assertSame('quoted', $order->status);
         $this->assertSame(150000, $order->total);
+    }
+
+    public function test_table_polling_pauses_while_an_action_modal_is_open(): void
+    {
+        // wire:poll memicu $refresh pada seluruh komponen. Kalau itu jalan saat
+        // modal "Set Harga" terbuka, isian admin ketimpa morph DOM dan klik
+        // Submit hilang ditelan request polling — tombolnya terasa mati.
+        $admin = User::factory()->create(['role' => 'admin']);
+        ['order' => $order] = $this->seedFixtures();
+
+        $this->actingAs($admin, 'admin');
+
+        $component = Livewire::test(ListOrders::class);
+        $this->assertSame('2s', $component->instance()->getTable()->getPollingInterval());
+
+        $component->mountTableAction('quote', $order);
+        $this->assertNull($component->instance()->getTable()->getPollingInterval());
+
+        $component->unmountTableAction();
+        $this->assertSame('2s', $component->instance()->getTable()->getPollingInterval());
     }
 
     public function test_admin_can_toggle_testimonial_visibility(): void

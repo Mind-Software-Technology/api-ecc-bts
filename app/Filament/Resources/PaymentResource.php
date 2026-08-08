@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\PaymentResource\Pages;
 use App\Models\Payment;
+use App\Support\TablePolling;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -75,8 +76,9 @@ class PaymentResource extends Resource
             ->striped()
             ->defaultSort('created_at', 'desc')
             // Status Midtrans berubah lewat webhook, bukan lewat aksi admin — polling
-            // supaya perubahannya muncul sendiri.
-            ->poll('2s')
+            // supaya perubahannya muncul sendiri. Berhenti selama modal
+            // terbuka — lihat TablePolling.
+            ->poll(TablePolling::whileIdle())
             ->columns([
                 Tables\Columns\TextColumn::make('order.order_no')
                     ->label('No. Pesanan')
