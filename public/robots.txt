@@ -1,2 +1,6 @@
+# Sengaja mengizinkan crawl. Larangan indeks domain ini dipasang lewat header
+# X-Robots-Tag: noindex (app/Http/Middleware/NoIndex.php), dan Google hanya
+# bisa membaca header itu kalau ia boleh merayapi halamannya. Mengubah baris
+# di bawah jadi "Disallow: /" justru MEMBATALKAN noindex-nya.
 User-agent: *
 Disallow:
