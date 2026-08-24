@@ -115,12 +115,10 @@ class ManageSiteConfig extends Page implements HasForms
                             ->label('')
                             ->schema([
                                 Forms\Components\TextInput::make('platform')
-                                    ->label('Platform')
-                                    ->required(),
+                                    ->label('Platform'),
                                 Forms\Components\TextInput::make('url')
                                     ->label('URL')
-                                    ->url()
-                                    ->required(),
+                                    ->url(),
                             ])
                             ->columns(2)
                             ->addActionLabel('Tambah Tautan')
