@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\PaymentResource\Pages;
+use App\Filament\Resources\PaymentResource\RelationManagers;
 use App\Models\Payment;
 use App\Support\PaymentStatusSync;
 use App\Support\TablePolling;
@@ -228,7 +229,7 @@ class PaymentResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\OrderItemsRelationManager::class,
         ];
     }
 
