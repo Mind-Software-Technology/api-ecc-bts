@@ -21,6 +21,7 @@ class PaymentResource extends JsonResource
             'midtrans_order_id' => $this->midtrans_order_id,
             'transaction_id' => $this->transaction_id,
             'payment_type' => $this->payment_type,
+            'method' => $this->method,
             'channel_detail' => $this->channel_detail,
             'gross_amount' => $this->gross_amount,
             'transaction_status' => $this->transaction_status,
@@ -31,6 +32,9 @@ class PaymentResource extends JsonResource
             'payment_code' => $this->payment_code,
             'expiry_time' => $this->expiry_time,
             'paid_at' => $this->paid_at,
+            'has_proof' => (bool) $this->proof_path,
+            'bank_account' => $this->bank_account_snapshot,
+            'verified_at' => $this->verified_at,
             'created_at' => $this->created_at,
         ];
     }

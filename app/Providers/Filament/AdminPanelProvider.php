@@ -37,6 +37,8 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->font('Inter')
             ->sidebarCollapsibleOnDesktop()
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('5s')
             ->navigationGroups([
                 NavigationGroup::make('Pesanan & Pembayaran')
                     ->icon('heroicon-o-shopping-bag')
