@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 #[Fillable([
     'order_id', 'midtrans_order_id', 'transaction_id', 'payment_type', 'method', 'channel_detail',
@@ -29,6 +30,23 @@ class Payment extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    /**
+     * Item pesanan milik order ini — dijangkau lewat order_id karena
+     * order_items tidak punya kolom payment_id (satu order bisa punya
+     * banyak payment, tapi item pesanannya cuma dimiliki order-nya).
+     */
+    public function orderItems(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            OrderItem::class,
+            Order::class,
+            'id',
+            'order_id',
+            'order_id',
+            'id',
+        );
     }
 
     public function notifications(): HasMany

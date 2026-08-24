@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Filament\Resources\OrderResource\Pages\ListOrders;
 use App\Filament\Resources\OrderResource\Pages\ViewOrder;
+use App\Filament\Resources\PaymentResource\Pages\ViewPayment;
+use App\Filament\Resources\PaymentResource\RelationManagers\OrderItemsRelationManager;
 use App\Filament\Resources\TestimonialResource\Pages\ListTestimonials;
 use App\Models\Advantage;
 use App\Models\Category;
@@ -18,7 +20,9 @@ use App\Models\SiteConfig;
 use App\Models\Testimonial;
 use App\Models\User;
 use App\Notifications\OrderQuoteReady;
+use App\Notifications\OrderResultReady;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -86,7 +90,7 @@ class FilamentAdminSmokeTest extends TestCase
             'line_total' => 0,
         ]);
 
-        Payment::create([
+        $payment = Payment::create([
             'order_id' => $order->id,
             'midtrans_order_id' => $order->order_no,
             'transaction_id' => 'trx-'.uniqid(),
@@ -112,13 +116,13 @@ class FilamentAdminSmokeTest extends TestCase
             'nav_items' => [],
         ]);
 
-        return compact('order', 'orderItem');
+        return compact('order', 'orderItem', 'payment');
     }
 
     public function test_admin_can_load_every_panel_page(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
-        ['order' => $order] = $this->seedFixtures();
+        ['order' => $order, 'payment' => $payment] = $this->seedFixtures();
 
         $pages = [
             '/admin',
@@ -131,6 +135,7 @@ class FilamentAdminSmokeTest extends TestCase
             '/admin/testimonials',
             '/admin/contact-messages',
             '/admin/payments',
+            "/admin/payments/{$payment->id}",
             '/admin/manage-site-config',
             '/admin/orders',
             "/admin/orders/{$order->id}",
@@ -231,5 +236,29 @@ class FilamentAdminSmokeTest extends TestCase
             ->assertHasNoTableActionErrors();
 
         $this->assertSame(! $wasActive, (bool) $testimonial->fresh()->is_active);
+    }
+
+    public function test_admin_can_upload_order_result_from_payment_page(): void
+    {
+        Notification::fake();
+
+        $admin = User::factory()->create(['role' => 'admin']);
+        ['orderItem' => $orderItem, 'payment' => $payment] = $this->seedFixtures();
+
+        $this->actingAs($admin, 'admin');
+
+        Livewire::test(OrderItemsRelationManager::class, [
+            'ownerRecord' => $payment,
+            'pageClass' => ViewPayment::class,
+        ])
+            ->callTableAction('uploadResult', $orderItem, data: [
+                'result' => UploadedFile::fake()->create('hasil.pdf', 10, 'application/pdf'),
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $orderItem->refresh();
+        $this->assertNotNull($orderItem->result_path);
+        $this->assertNotNull($orderItem->result_delivered_at);
+        Notification::assertSentTo($orderItem->order->user, OrderResultReady::class);
     }
 }

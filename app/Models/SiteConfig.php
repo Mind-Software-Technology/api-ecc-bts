@@ -4,9 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
-    'brand_name', 'logo_url', 'contact_email', 'contact_phone', 'address',
+    'brand_name', 'logo_url', 'logo_path', 'contact_email', 'contact_phone', 'address',
     'bank_accounts', 'payment_method_mode', 'social_links', 'nav_items',
 ])]
 class SiteConfig extends Model
@@ -18,6 +19,15 @@ class SiteConfig extends Model
             'social_links' => 'array',
             'nav_items' => 'array',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::updating(function (SiteConfig $config) {
+            if ($config->isDirty('logo_path') && $config->getOriginal('logo_path')) {
+                Storage::disk('public')->delete($config->getOriginal('logo_path'));
+            }
+        });
     }
 
     public function midtransEnabled(): bool

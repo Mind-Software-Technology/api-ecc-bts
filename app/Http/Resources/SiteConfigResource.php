@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class SiteConfigResource extends JsonResource
 {
@@ -14,7 +15,7 @@ class SiteConfigResource extends JsonResource
     {
         return [
             'brand_name' => $this->brand_name,
-            'logo_url' => $this->logo_url,
+            'logo_url' => $this->logo_path ? Storage::disk('public')->url($this->logo_path) : $this->logo_url,
             'contact_email' => $this->contact_email,
             'contact_phone' => $this->contact_phone,
             'address' => $this->address,

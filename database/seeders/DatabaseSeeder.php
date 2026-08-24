@@ -135,12 +135,12 @@ class DatabaseSeeder extends Seeder
             'address' => 'Indonesia',
             'social_links' => ['instagram' => 'https://instagram.com/eccbts', 'whatsapp' => 'https://wa.me/6281200000000'],
             'nav_items' => [
-                ['label' => 'Beranda', 'path' => '/'],
-                ['label' => 'Kategori', 'path' => '/kategori'],
-                ['label' => 'Produk', 'path' => '/produk'],
-                ['label' => 'Kegiatan', 'path' => '/kegiatan'],
-                ['label' => 'Tentang Kami', 'path' => '/tentang'],
-                ['label' => 'Kontak', 'path' => '/kontak'],
+                ['label' => 'Beranda', 'url' => '/'],
+                ['label' => 'Kategori', 'url' => '/kategori'],
+                ['label' => 'Produk', 'url' => '/produk'],
+                ['label' => 'Kegiatan', 'url' => '/kegiatan'],
+                ['label' => 'Tentang Kami', 'url' => '/tentang'],
+                ['label' => 'Kontak', 'url' => '/kontak'],
             ],
         ]);
     }

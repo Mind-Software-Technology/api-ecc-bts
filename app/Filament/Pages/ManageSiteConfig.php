@@ -43,8 +43,15 @@ class ManageSiteConfig extends Page implements HasForms
                             ->label('Nama Merek')
                             ->required()
                             ->maxLength(255),
+                        Forms\Components\FileUpload::make('logo_path')
+                            ->label('Logo')
+                            ->image()
+                            ->disk('public')
+                            ->directory('site')
+                            ->visibility('public'),
                         Forms\Components\TextInput::make('logo_url')
-                            ->label('URL Logo')
+                            ->label('URL Logo (opsional)')
+                            ->helperText('Diisi otomatis kalau upload logo. Isi manual hanya jika logo di-host di luar.')
                             ->url()
                             ->maxLength(255),
                     ])->columns(2),
@@ -129,6 +136,7 @@ class ManageSiteConfig extends Page implements HasForms
                                     ->required(),
                                 Forms\Components\TextInput::make('url')
                                     ->label('URL')
+                                    ->helperText('Path relatif seperti /kategori, atau URL penuh.')
                                     ->required(),
                             ])
                             ->columns(2)
