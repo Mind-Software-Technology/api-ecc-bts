@@ -7,6 +7,7 @@ use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 
@@ -61,18 +62,46 @@ class ManageSiteConfig extends Page implements HasForms
                             ->maxLength(255)
                             ->columnSpanFull(),
                     ])->columns(2),
-                Forms\Components\Section::make('Rekening Bank')
+                Forms\Components\Section::make('Metode Pembayaran')
                     ->schema([
-                        Forms\Components\TextInput::make('bank_name')
-                            ->label('Nama Bank')
-                            ->maxLength(100),
-                        Forms\Components\TextInput::make('bank_account_number')
-                            ->label('Nomor Rekening')
-                            ->maxLength(60),
-                        Forms\Components\TextInput::make('bank_account_holder')
-                            ->label('Nama Pemilik Rekening')
-                            ->maxLength(255),
-                    ])->columns(3),
+                        Forms\Components\Select::make('payment_method_mode')
+                            ->label('Metode Pembayaran Aktif')
+                            ->options([
+                                'midtrans' => 'Midtrans (Otomatis)',
+                                'manual' => 'Transfer Manual',
+                                'both' => 'Midtrans & Transfer Manual',
+                            ])
+                            ->required()
+                            ->live()
+                            ->helperText('Pilih metode yang tersedia untuk pelanggan saat checkout.'),
+                    ]),
+                Forms\Components\Section::make('Rekening Bank')
+                    ->description('Minimal satu rekening wajib diisi kalau Transfer Manual aktif — pelanggan memilih salah satunya saat checkout.')
+                    ->schema([
+                        Forms\Components\Repeater::make('bank_accounts')
+                            ->label('')
+                            ->schema([
+                                Forms\Components\TextInput::make('bank_name')
+                                    ->label('Nama Bank')
+                                    ->required()
+                                    ->maxLength(100),
+                                Forms\Components\TextInput::make('account_number')
+                                    ->label('Nomor Rekening')
+                                    ->required()
+                                    ->maxLength(60),
+                                Forms\Components\TextInput::make('account_holder')
+                                    ->label('Nama Pemilik Rekening')
+                                    ->required()
+                                    ->maxLength(255),
+                            ])
+                            ->columns(3)
+                            ->addActionLabel('Tambah Rekening')
+                            ->itemLabel(fn (array $state): ?string => $state['bank_name'] ?? null)
+                            ->defaultItems(0)
+                            ->minItems(fn (Get $get): int => in_array($get('payment_method_mode'), ['manual', 'both']) ? 1 : 0)
+                            ->reorderable()
+                            ->collapsible(),
+                    ]),
                 Forms\Components\Section::make('Tautan Sosial Media')
                     ->schema([
                         Forms\Components\Repeater::make('social_links')

@@ -65,6 +65,7 @@ Route::post('payments', [PaymentController::class, 'store'])->middleware('thrott
 Route::get('payments/{order_no}/status', [PaymentController::class, 'status']);
 Route::post('payments/{order_no}/cancel', [PaymentController::class, 'cancel']);
 Route::post('payments/{order_no}/change-method', [PaymentController::class, 'changeMethod']);
+Route::post('payments/{order_no}/proof', [PaymentController::class, 'uploadProof']);
 Route::post('payments/notification', [PaymentNotificationController::class, 'handle']);
 
 // Auth (shared antara customer & admin — dibedakan lewat users.role)
@@ -109,4 +110,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('payments', [PaymentController::class, 'store'])->middleware('throttle:10,1');
     Route::get('payments/{order_no}/status', [PaymentController::class, 'status']);
     Route::post('payments/{order_no}/cancel', [PaymentController::class, 'cancel']);
+    Route::post('payments/{order_no}/proof', [PaymentController::class, 'uploadProof']);
 });

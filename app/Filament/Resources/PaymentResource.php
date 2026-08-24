@@ -4,9 +4,11 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\PaymentResource\Pages;
 use App\Models\Payment;
+use App\Support\PaymentStatusSync;
 use App\Support\TablePolling;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -24,6 +26,26 @@ class PaymentResource extends Resource
     protected static ?string $modelLabel = 'Pembayaran';
 
     protected static ?string $pluralModelLabel = 'Pembayaran';
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = static::getModel()::where('method', 'manual')
+            ->where('transaction_status', 'pending')
+            ->whereNotNull('proof_path')
+            ->count();
+
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return 'Bukti transfer manual menunggu verifikasi';
+    }
 
     public static function form(Form $form): Form
     {
@@ -85,6 +107,19 @@ class PaymentResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('payment_type')
                     ->label('Tipe'),
+                Tables\Columns\TextColumn::make('method')
+                    ->label('Metode')
+                    ->badge()
+                    ->formatStateUsing(fn (string $state): string => $state === 'manual' ? 'Transfer Manual' : 'Midtrans')
+                    ->color(fn (string $state): string => $state === 'manual' ? 'info' : 'gray'),
+                Tables\Columns\IconColumn::make('proof_path')
+                    ->label('Bukti')
+                    ->boolean()
+                    ->getStateUsing(fn (Payment $record): bool => (bool) $record->proof_path),
+                Tables\Columns\TextColumn::make('bank_account_snapshot')
+                    ->label('Rekening Tujuan')
+                    ->formatStateUsing(fn (?array $state): string => $state ? "{$state['bank_name']} — {$state['account_number']}" : '—')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('gross_amount')
                     ->label('Jumlah')
                     ->money('IDR')
@@ -124,6 +159,50 @@ class PaymentResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
+                Tables\Actions\Action::make('viewProof')
+                    ->label('Lihat Bukti')
+                    ->icon('heroicon-o-paper-clip')
+                    ->url(fn (Payment $record): ?string => $record->proof_path ? route('admin.payments.proof', $record) : null)
+                    ->openUrlInNewTab()
+                    ->visible(fn (Payment $record): bool => (bool) $record->proof_path),
+                Tables\Actions\Action::make('verifyAccept')
+                    ->label('Terima')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalDescription('Pesanan akan ditandai lunas setelah pembayaran manual ini diterima.')
+                    ->visible(fn (Payment $record): bool => $record->method === 'manual' && $record->transaction_status === 'pending')
+                    ->action(function (Payment $record): void {
+                        PaymentStatusSync::apply($record, 'settlement', null);
+                        $record->fresh()->update([
+                            'verified_by' => auth('admin')->id(),
+                            'verified_at' => now(),
+                        ]);
+
+                        Notification::make()
+                            ->title('Pembayaran diverifikasi, pesanan ditandai lunas')
+                            ->success()
+                            ->send();
+                    }),
+                Tables\Actions\Action::make('verifyReject')
+                    ->label('Tolak')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalDescription('Pesanan akan ditandai gagal — pelanggan bisa mencoba membayar ulang.')
+                    ->visible(fn (Payment $record): bool => $record->method === 'manual' && $record->transaction_status === 'pending')
+                    ->action(function (Payment $record): void {
+                        PaymentStatusSync::apply($record, 'deny', null);
+                        $record->fresh()->update([
+                            'verified_by' => auth('admin')->id(),
+                            'verified_at' => now(),
+                        ]);
+
+                        Notification::make()
+                            ->title('Bukti transfer ditolak')
+                            ->danger()
+                            ->send();
+                    }),
             ])
             ->bulkActions([])
             ->emptyStateHeading('Belum ada pembayaran')

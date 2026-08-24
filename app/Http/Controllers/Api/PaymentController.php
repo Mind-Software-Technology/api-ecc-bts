@@ -6,9 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\PaymentResource;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\SiteConfig;
+use App\Models\User;
 use App\Support\PaymentStatusSync;
+use Filament\Notifications\Actions\Action as FilamentAction;
+use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Midtrans\CoreApi;
 use Midtrans\Transaction;
 
@@ -18,16 +23,45 @@ class PaymentController extends Controller
     {
         $data = $request->validate([
             'order_no' => 'required|string|exists:orders,order_no',
-            'payment_type' => 'required|in:bank_transfer,echannel,gopay,shopeepay,qris,credit_card,cstore',
+            'payment_type' => 'required|in:bank_transfer,echannel,gopay,shopeepay,qris,credit_card,cstore,manual_transfer',
             'bank' => 'required_if:payment_type,bank_transfer|in:bca,bni,bri,permata',
             'store' => 'required_if:payment_type,cstore|in:indomaret,alfamart',
             'card_token' => 'required_if:payment_type,credit_card|string',
+            'bank_account_index' => 'required_if:payment_type,manual_transfer|integer|min:0',
         ]);
 
         $order = Order::findAccessibleOrFail($data['order_no'], $request);
         abort_unless(in_array($order->status, ['pending', 'awaiting_payment']), 422, 'Order is not payable.');
 
+        $isManual = $data['payment_type'] === 'manual_transfer';
+        $config = SiteConfig::firstOrFail();
+        abort_if($isManual && ! $config->manualEnabled(), 422, 'Transfer manual sedang tidak tersedia.');
+        abort_if(! $isManual && ! $config->midtransEnabled(), 422, 'Pembayaran online sedang tidak tersedia, silakan gunakan transfer manual.');
+
         $midtransOrderId = $order->order_no.'-'.($order->payments()->count() + 1);
+
+        if ($isManual) {
+            $bankAccount = ($config->bank_accounts ?? [])[$data['bank_account_index']] ?? null;
+            abort_unless($bankAccount, 422, 'Rekening tujuan tidak valid.');
+
+            $payment = DB::transaction(function () use ($order, $midtransOrderId, $bankAccount) {
+                $payment = Payment::create([
+                    'order_id' => $order->id,
+                    'midtrans_order_id' => $midtransOrderId,
+                    'payment_type' => 'manual_transfer',
+                    'method' => 'manual',
+                    'gross_amount' => $order->total,
+                    'transaction_status' => 'pending',
+                    'bank_account_snapshot' => $bankAccount,
+                ]);
+
+                $order->update(['status' => 'awaiting_payment']);
+
+                return $payment;
+            });
+
+            return new PaymentResource($payment);
+        }
 
         try {
             $response = CoreApi::charge($this->chargeParams($order, $data, $midtransOrderId));
@@ -50,6 +84,7 @@ class PaymentController extends Controller
                 'midtrans_order_id' => $midtransOrderId,
                 'transaction_id' => $response->transaction_id ?? null,
                 'payment_type' => $data['payment_type'],
+                'method' => 'midtrans',
                 'channel_detail' => $channelDetail,
                 'gross_amount' => (int) ($response->gross_amount ?? $order->total),
                 'transaction_status' => $response->transaction_status ?? 'pending',
@@ -66,6 +101,49 @@ class PaymentController extends Controller
 
             return $payment;
         });
+
+        return new PaymentResource($payment);
+    }
+
+    /**
+     * Customer uploads/replaces bukti transfer for their pending manual
+     * payment. Mirrors OrderController::uploadAttachment's storage pattern.
+     */
+    public function uploadProof(Request $request, string $order_no)
+    {
+        $data = $request->validate([
+            'proof' => 'required|file|mimes:jpg,jpeg,png,pdf|max:10240',
+        ]);
+
+        $order = Order::findAccessibleOrFail($order_no, $request);
+        $payment = $order->payments()->where('method', 'manual')->latest()->first();
+        abort_unless($payment, 404);
+        abort_if($payment->verified_at, 422, 'Pembayaran ini sudah diverifikasi.');
+
+        if ($payment->proof_path) {
+            Storage::disk('local')->delete($payment->proof_path);
+        }
+
+        $file = $data['proof'];
+        $payment->update([
+            'proof_path' => $file->store('payment-proofs', 'local'),
+            'proof_original_name' => $file->getClientOriginalName(),
+        ]);
+
+        // Filament's own notification type (not a plain Illuminate\Notification
+        // like the customer-facing ones) so it renders correctly in the admin
+        // panel's bell — that bell already polls on its own, no page refresh needed.
+        FilamentNotification::make()
+            ->title('Bukti transfer baru')
+            ->body("Pesanan {$order->order_no} mengunggah bukti transfer, menunggu verifikasi.")
+            ->icon('heroicon-o-banknotes')
+            ->actions([
+                FilamentAction::make('view')
+                    ->label('Lihat Pembayaran')
+                    ->url(route('filament.admin.resources.payments.view', $payment))
+                    ->markAsRead(),
+            ])
+            ->sendToDatabase(User::where('role', 'admin')->get());
 
         return new PaymentResource($payment);
     }
@@ -136,6 +214,14 @@ class PaymentController extends Controller
 
         $payment = $order->payments()->where('transaction_status', 'pending')->latest()->first();
         abort_if(! $payment, 422, 'Tidak ada transaksi pending untuk '.$actionLabel.'.');
+
+        // Manual transfers never touch Midtrans, so there's nothing to sync
+        // or cancel over there — just flip the local status directly.
+        if ($payment->method === 'manual') {
+            $payment->transaction_status = 'cancel';
+
+            return $payment;
+        }
 
         // Local status can drift from Midtrans's actual status if the webhook
         // never arrived — e.g. some payment methods (QRIS/GoPay) auto-expire
