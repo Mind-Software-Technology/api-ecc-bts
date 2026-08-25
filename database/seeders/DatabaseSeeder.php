@@ -134,6 +134,16 @@ class DatabaseSeeder extends Seeder
             'contact_phone' => '+62 812-0000-0000',
             'address' => 'Indonesia',
             'social_links' => ['instagram' => 'https://instagram.com/eccbts', 'whatsapp' => 'https://wa.me/6281200000000'],
+            'hero' => [
+                'eyebrow' => 'ECC • Best To Solution',
+                'title' => 'Temukan Layanan untuk',
+                'title_highlight' => 'Karya Ilmiah Anda',
+                'subtitle' => 'Dari cek similarity, olah data, hingga publikasi dan penerbitan buku — semua layanan dalam satu tempat, dikerjakan tim ahli yang profesional dan terpercaya.',
+                'stat_works_label' => 'Karya selesai',
+                'stat_clients_label' => 'Klien puas',
+                'stat_quality_value' => '100%',
+                'stat_quality_label' => 'Komitmen kualitas',
+            ],
             'nav_items' => [
                 ['label' => 'Beranda', 'url' => '/'],
                 ['label' => 'Kategori', 'url' => '/kategori'],

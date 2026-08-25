@@ -124,6 +124,40 @@ class ManageSiteConfig extends Page implements HasForms
                             ->addActionLabel('Tambah Tautan')
                             ->defaultItems(0),
                     ]),
+                Forms\Components\Section::make('Hero Halaman Depan')
+                    ->description('Teks besar di bagian paling atas beranda. Dua angka pertama dihitung otomatis dari data pesanan, jadi hanya labelnya yang bisa diubah di sini.')
+                    ->schema([
+                        Forms\Components\TextInput::make('hero.eyebrow')
+                            ->label('Teks Kecil di Atas Judul')
+                            ->maxLength(80),
+                        Forms\Components\TextInput::make('hero.title')
+                            ->label('Judul (bagian putih)')
+                            ->maxLength(120),
+                        Forms\Components\TextInput::make('hero.title_highlight')
+                            ->label('Judul (bagian oranye)')
+                            ->helperText('Lanjutan judul yang tampil berwarna.')
+                            ->maxLength(120),
+                        Forms\Components\Textarea::make('hero.subtitle')
+                            ->label('Paragraf Penjelas')
+                            ->rows(3)
+                            ->maxLength(400)
+                            ->columnSpanFull(),
+                        Forms\Components\TextInput::make('hero.stat_works_label')
+                            ->label('Label Angka Ke-1')
+                            ->helperText('Angkanya = jumlah pesanan lunas, otomatis.')
+                            ->maxLength(40),
+                        Forms\Components\TextInput::make('hero.stat_clients_label')
+                            ->label('Label Angka Ke-2')
+                            ->helperText('Angkanya = jumlah pelanggan yang punya pesanan lunas, otomatis.')
+                            ->maxLength(40),
+                        Forms\Components\TextInput::make('hero.stat_quality_value')
+                            ->label('Angka Ke-3')
+                            ->helperText('Yang ini diketik manual, mis. 100%.')
+                            ->maxLength(10),
+                        Forms\Components\TextInput::make('hero.stat_quality_label')
+                            ->label('Label Angka Ke-3')
+                            ->maxLength(40),
+                    ])->columns(2),
                 Forms\Components\Section::make('Menu Navigasi')
                     ->schema([
                         Forms\Components\Repeater::make('nav_items')
