@@ -68,6 +68,14 @@ class ManageSiteConfig extends Page implements HasForms
                             ->label('Alamat')
                             ->maxLength(255)
                             ->columnSpanFull(),
+                        Forms\Components\Textarea::make('maps_embed_url')
+                            ->label('Peta Google Maps')
+                            ->helperText('Buka lokasi di Google Maps → Bagikan → tab "Sematkan peta" → Salin HTML, lalu tempel di sini. Boleh seluruh kode <iframe> atau URL-nya saja. Kosongkan untuk menyembunyikan peta.')
+                            ->rows(3)
+                            ->maxLength(1000)
+                            ->regex('#^$|https://www\.google\.com/maps/embed#')
+                            ->validationMessages(['regex' => 'Harus tautan "Sematkan peta" dari Google Maps (mengandung https://www.google.com/maps/embed). Tautan bagikan biasa seperti maps.app.goo.gl tidak bisa ditampilkan sebagai peta.'])
+                            ->columnSpanFull(),
                     ])->columns(2),
                 Forms\Components\Section::make('Metode Pembayaran')
                     ->schema([

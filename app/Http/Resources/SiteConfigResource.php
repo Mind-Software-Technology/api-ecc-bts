@@ -20,6 +20,7 @@ class SiteConfigResource extends JsonResource
             'contact_email' => $this->contact_email,
             'contact_phone' => $this->contact_phone,
             'address' => $this->address,
+            'maps_embed_url' => $this->maps_embed_url,
             'bank_accounts' => $this->bank_accounts ?? [],
             'payment_method_mode' => $this->payment_method_mode,
             'social_links' => $this->social_links,
