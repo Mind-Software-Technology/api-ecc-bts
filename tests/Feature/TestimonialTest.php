@@ -162,6 +162,21 @@ class TestimonialTest extends TestCase
         $this->assertFalse($names->contains('Sembunyi'));
     }
 
+    public function test_public_endpoint_hanya_mengirim_enam_terbaru(): void
+    {
+        // sort_order testimoni dari pelanggan selalu 0, jadi ini sekaligus
+        // menguji urutan kedua (id menurun) yang jadi penentu di antara seri.
+        foreach (range(1, 8) as $i) {
+            Testimonial::create(['name' => "Orang {$i}", 'role' => 'Alumni', 'text' => 'Bagus', 'rating' => 5, 'sort_order' => 0, 'is_active' => true]);
+        }
+
+        $names = collect($this->getJson('/api/testimonials')->assertOk()->json('data'))->pluck('name');
+
+        $this->assertCount(6, $names);
+        $this->assertSame('Orang 8', $names->first());
+        $this->assertFalse($names->contains('Orang 1'));
+    }
+
     // Admin moderation (toggle visibility, no create/edit/delete) now lives in
     // the Filament panel — see App\Filament\Resources\TestimonialResource and
     // FilamentAdminSmokeTest::test_admin_can_toggle_testimonial_visibility.
