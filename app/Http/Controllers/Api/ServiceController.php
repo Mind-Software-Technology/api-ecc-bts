@@ -14,6 +14,7 @@ class ServiceController extends Controller
         $limit = min((int) $request->query('limit', 12) ?: 12, 100);
 
         $services = Service::query()
+            ->with('category')
             ->where('is_active', true)
             ->when($request->query('category'), function ($query, $categorySlug) {
                 $query->whereHas('category', fn ($q) => $q->where('slug', $categorySlug));
