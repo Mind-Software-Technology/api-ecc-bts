@@ -79,16 +79,21 @@ class OrderController extends Controller
             return $order;
         });
 
-        $order->load('items');
+        $order->load('items.attachments');
         Notification::send(User::where('role', 'admin')->get(), new NewQuoteRequest($order));
 
         return new OrderResource($order);
     }
 
     /**
-     * Customer uploads/replaces the attachment for one order item — a
-     * separate step from store() now, done after the WhatsApp consultation
-     * (order already exists by then, admin prices it off the item list).
+     * Customer uploads one attachment for an order item — a separate step
+     * from store() now, done after the WhatsApp consultation (order already
+     * exists by then, admin prices it off the item list). Items ordered with
+     * qty > 1 can carry up to `qty` attachments (one per unit), added one at
+     * a time rather than replacing each other — but once at capacity, the
+     * next upload replaces the oldest one instead of erroring, so a customer
+     * can still revise/swap a wrong file the same way they always could for
+     * a qty=1 item (see test_attachment_upload_replaces_previous_file_on_revision).
      */
     public function uploadAttachment(Request $request, string $order_no, int $item)
     {
@@ -104,17 +109,61 @@ class OrderController extends Controller
 
         $data = $request->validate(['attachment' => self::ATTACHMENT_RULES]);
 
-        if ($orderItem->attachment_path) {
-            Storage::disk('local')->delete($orderItem->attachment_path);
+        if ($orderItem->attachments()->count() >= $orderItem->qty) {
+            $oldest = $orderItem->attachments()->oldest('id')->first();
+            Storage::disk('local')->delete($oldest->path);
+            $oldest->delete();
         }
 
         $file = $data['attachment'];
-        $orderItem->update([
-            'attachment_path' => $file->store('order-attachments', 'local'),
-            'attachment_original_name' => $file->getClientOriginalName(),
+        $path = $file->store('order-attachments', 'local');
+        $originalName = $file->getClientOriginalName();
+
+        $orderItem->attachments()->create([
+            'path' => $path,
+            'original_name' => $originalName,
         ]);
 
-        return new OrderItemResource($orderItem);
+        // Legacy single-file columns mirror the most recently uploaded
+        // attachment, so older admin views/routes reading them directly
+        // still show something sensible without needing a rewrite.
+        $orderItem->update([
+            'attachment_path' => $path,
+            'attachment_original_name' => $originalName,
+        ]);
+
+        return new OrderItemResource($orderItem->fresh('attachments'));
+    }
+
+    /**
+     * Removes one previously-uploaded attachment before the consultation
+     * step, letting the customer swap out a wrong file.
+     */
+    public function deleteAttachment(Request $request, string $order_no, int $item, int $attachment)
+    {
+        $order = Order::findAccessibleOrFail($order_no, $request);
+        abort_unless(
+            in_array($order->status, ['awaiting_quote', 'quoted']),
+            422,
+            'Lampiran hanya bisa diubah selama pesanan belum disetujui/dibayar.',
+        );
+
+        $orderItem = $order->items->firstWhere('id', $item);
+        abort_if(! $orderItem, 404);
+
+        $row = $orderItem->attachments()->find($attachment);
+        abort_if(! $row, 404);
+
+        Storage::disk('local')->delete($row->path);
+        $row->delete();
+
+        $latest = $orderItem->attachments()->latest('id')->first();
+        $orderItem->update([
+            'attachment_path' => $latest?->path,
+            'attachment_original_name' => $latest?->original_name,
+        ]);
+
+        return new OrderItemResource($orderItem->fresh('attachments'));
     }
 
     public function downloadResult(Request $request, string $order_no, int $item)
