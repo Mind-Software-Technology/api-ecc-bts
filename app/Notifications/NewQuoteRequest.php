@@ -32,7 +32,7 @@ class NewQuoteRequest extends Notification
             ->greeting('Halo Admin,')
             ->line("Ada permintaan harga baru dari {$this->order->guest_name} pada pesanan {$this->order->order_no} ({$itemCount} layanan).")
             ->line('Silakan tinjau file yang diunggah dan tentukan harga.')
-            ->action('Lihat Pesanan', rtrim(config('services.frontend_url'), '/')."/admin/orders/{$this->order->order_no}")
+            ->action('Lihat Pesanan', rtrim(config('app.url'), '/')."/admin/orders/{$this->order->id}")
             ->line('Terima kasih.');
     }
 }
