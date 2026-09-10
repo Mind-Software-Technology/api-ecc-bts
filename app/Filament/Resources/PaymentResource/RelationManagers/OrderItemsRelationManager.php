@@ -39,10 +39,9 @@ class OrderItemsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('line_total')
                     ->label('Subtotal')
                     ->money('IDR'),
-                Tables\Columns\IconColumn::make('attachment_path')
+                Tables\Columns\TextColumn::make('attachments_count')
                     ->label('Lampiran')
-                    ->boolean()
-                    ->getStateUsing(fn ($record) => (bool) $record->attachment_path),
+                    ->getStateUsing(fn ($record) => "{$record->attachments()->count()}/{$record->qty}"),
                 Tables\Columns\TextColumn::make('result_delivered_at')
                     ->label('Hasil Dikirim')
                     ->dateTime()
@@ -54,7 +53,7 @@ class OrderItemsRelationManager extends RelationManager
             ->headerActions([])
             ->actions([
                 Tables\Actions\Action::make('downloadAttachment')
-                    ->label('Unduh Lampiran')
+                    ->label('Unduh Lampiran Terbaru')
                     ->icon('heroicon-o-paper-clip')
                     ->url(fn ($record) => $record->attachment_path
                         ? route('admin.order-items.attachment', $record)

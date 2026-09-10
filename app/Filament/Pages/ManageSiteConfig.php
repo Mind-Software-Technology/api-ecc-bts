@@ -54,7 +54,7 @@ class ManageSiteConfig extends Page implements HasForms
                             ->helperText('Diisi otomatis kalau upload logo. Isi manual hanya jika logo di-host di luar.')
                             ->url()
                             ->maxLength(255),
-                    ])->columns(2),
+                    ])->columns(['default' => 1, 'sm' => 2]),
                 Forms\Components\Section::make('Kontak')
                     ->schema([
                         Forms\Components\TextInput::make('contact_email')
@@ -76,7 +76,7 @@ class ManageSiteConfig extends Page implements HasForms
                             ->regex('#^$|https://www\.google\.com/maps/embed#')
                             ->validationMessages(['regex' => 'Harus tautan "Sematkan peta" dari Google Maps (mengandung https://www.google.com/maps/embed). Tautan bagikan biasa seperti maps.app.goo.gl tidak bisa ditampilkan sebagai peta.'])
                             ->columnSpanFull(),
-                    ])->columns(2),
+                    ])->columns(['default' => 1, 'sm' => 2]),
                 Forms\Components\Section::make('Metode Pembayaran')
                     ->schema([
                         Forms\Components\Select::make('payment_method_mode')
@@ -109,7 +109,7 @@ class ManageSiteConfig extends Page implements HasForms
                                     ->required()
                                     ->maxLength(255),
                             ])
-                            ->columns(3)
+                            ->columns(['default' => 1, 'sm' => 3])
                             ->addActionLabel('Tambah Rekening')
                             ->itemLabel(fn (array $state): ?string => $state['bank_name'] ?? null)
                             ->defaultItems(0)
@@ -128,7 +128,7 @@ class ManageSiteConfig extends Page implements HasForms
                                     ->label('URL')
                                     ->url(),
                             ])
-                            ->columns(2)
+                            ->columns(['default' => 1, 'sm' => 2])
                             ->addActionLabel('Tambah Tautan')
                             ->defaultItems(0),
                     ]),
@@ -165,7 +165,7 @@ class ManageSiteConfig extends Page implements HasForms
                         Forms\Components\TextInput::make('hero.stat_quality_label')
                             ->label('Label Angka Ke-3')
                             ->maxLength(40),
-                    ])->columns(2),
+                    ])->columns(['default' => 1, 'sm' => 2]),
                 Forms\Components\Section::make('Menu Navigasi')
                     ->schema([
                         Forms\Components\Repeater::make('nav_items')
@@ -179,7 +179,7 @@ class ManageSiteConfig extends Page implements HasForms
                                     ->helperText('Path relatif seperti /kategori, atau URL penuh.')
                                     ->required(),
                             ])
-                            ->columns(2)
+                            ->columns(['default' => 1, 'sm' => 2])
                             ->addActionLabel('Tambah Menu')
                             ->defaultItems(0),
                     ]),

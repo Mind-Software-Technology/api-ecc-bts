@@ -22,6 +22,15 @@ class OrderItemResource extends JsonResource
             'requires_attachment' => (bool) ($this->service?->requires_attachment ?? false),
             'has_attachment' => $this->attachment_path !== null,
             'attachment_original_name' => $this->attachment_original_name,
+            'attachments' => $this->whenLoaded(
+                'attachments',
+                fn () => $this->attachments->map(fn ($a) => [
+                    'id' => $a->id,
+                    'original_name' => $a->original_name,
+                ]),
+                [],
+            ),
+            'attachments_count' => $this->whenLoaded('attachments', fn () => $this->attachments->count(), fn () => $this->attachment_path !== null ? 1 : 0),
             'has_result' => $this->result_path !== null,
             'result_original_name' => $this->result_original_name,
             'result_delivered_at' => $this->result_delivered_at?->toIso8601String(),

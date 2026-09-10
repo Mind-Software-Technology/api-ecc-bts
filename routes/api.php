@@ -55,6 +55,7 @@ Route::patch('orders/{order_no}', [OrderController::class, 'update']);
 Route::get('orders', [OrderController::class, 'index'])->middleware('throttle:20,1');
 Route::get('orders/{order_no}/items/{item}/attachment', [OrderController::class, 'downloadAttachment']);
 Route::post('orders/{order_no}/items/{item}/attachment', [OrderController::class, 'uploadAttachment']);
+Route::delete('orders/{order_no}/items/{item}/attachment/{attachment}', [OrderController::class, 'deleteAttachment']);
 Route::get('orders/{order_no}/items/{item}/result', [OrderController::class, 'downloadResult']);
 Route::post('orders/{order_no}/testimonial', [OrderController::class, 'submitTestimonial']);
 Route::post('orders/{order_no}/accept-quote', [OrderController::class, 'acceptQuote']);

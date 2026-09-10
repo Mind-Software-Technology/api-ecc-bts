@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'order_id', 'service_id', 'title_snapshot', 'price_snapshot', 'qty', 'line_total',
@@ -28,5 +29,10 @@ class OrderItem extends Model
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class);
+    }
+
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(OrderItemAttachment::class);
     }
 }
