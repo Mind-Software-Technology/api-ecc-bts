@@ -35,4 +35,9 @@ class OrderItem extends Model
     {
         return $this->hasMany(OrderItemAttachment::class);
     }
+
+    public function results(): HasMany
+    {
+        return $this->hasMany(OrderItemResult::class);
+    }
 }

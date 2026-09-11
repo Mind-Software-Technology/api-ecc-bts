@@ -184,6 +184,33 @@ class OrderController extends Controller
         return Storage::disk('local')->download($orderItem->$pathField, $orderItem->$nameField);
     }
 
+    /**
+     * An order item can carry several attachments/results (up to its qty) —
+     * these two download one specific file by id, unlike downloadAttachment()/
+     * downloadResult() above which only ever serve the single latest one.
+     */
+    public function downloadAttachmentFile(Request $request, string $order_no, int $item, int $attachment)
+    {
+        return $this->downloadOrderItemFileById($request, $order_no, $item, 'attachments', $attachment);
+    }
+
+    public function downloadResultFile(Request $request, string $order_no, int $item, int $result)
+    {
+        return $this->downloadOrderItemFileById($request, $order_no, $item, 'results', $result);
+    }
+
+    private function downloadOrderItemFileById(Request $request, string $order_no, int $item, string $relation, int $fileId)
+    {
+        $order = Order::findAccessibleOrFail($order_no, $request);
+        $orderItem = $order->items->firstWhere('id', $item);
+        abort_if(! $orderItem, 404);
+
+        $file = $orderItem->$relation()->find($fileId);
+        abort_if(! $file, 404);
+
+        return Storage::disk('local')->download($file->path, $file->original_name);
+    }
+
     public function show(Request $request, string $order_no)
     {
         return new OrderResource(Order::findAccessibleOrFail($order_no, $request));
@@ -274,7 +301,7 @@ class OrderController extends Controller
 
         $orders = Order::where('user_id', $request->user()->id)
             ->withExists('testimonial')
-            ->with('items.service')
+            ->with('items.service', 'items.attachments', 'items.results')
             ->latest()->paginate($limit, ['*'], 'page', $page);
 
         return [

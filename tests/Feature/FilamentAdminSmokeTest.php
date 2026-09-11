@@ -24,6 +24,7 @@ use App\Notifications\OrderResultReady;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -259,6 +260,68 @@ class FilamentAdminSmokeTest extends TestCase
         $orderItem->refresh();
         $this->assertNotNull($orderItem->result_path);
         $this->assertNotNull($orderItem->result_delivered_at);
+        $this->assertSame(1, $orderItem->results()->count());
         Notification::assertSentTo($orderItem->order->user, OrderResultReady::class);
+    }
+
+    public function test_admin_can_upload_several_results_in_one_submission(): void
+    {
+        // The upload field is ->multiple(), so an item with qty=3 (matching
+        // 3 customer attachments) should accept all 3 result files at once
+        // instead of forcing three separate "Unggah Hasil" submissions.
+        Notification::fake();
+
+        $admin = User::factory()->create(['role' => 'admin']);
+        ['orderItem' => $orderItem, 'payment' => $payment] = $this->seedFixtures();
+        $orderItem->update(['qty' => 3]);
+
+        $this->actingAs($admin, 'admin');
+
+        Livewire::test(OrderItemsRelationManager::class, [
+            'ownerRecord' => $payment,
+            'pageClass' => ViewPayment::class,
+        ])
+            ->callTableAction('uploadResult', $orderItem, data: [
+                'result' => [
+                    UploadedFile::fake()->create('hasil-1.pdf', 10, 'application/pdf'),
+                    UploadedFile::fake()->create('hasil-2.pdf', 10, 'application/pdf'),
+                    UploadedFile::fake()->create('hasil-3.pdf', 10, 'application/pdf'),
+                ],
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $this->assertSame(3, $orderItem->refresh()->results()->count());
+    }
+
+    public function test_admin_uploading_result_beyond_qty_replaces_oldest(): void
+    {
+        // Fixture item has qty=1, so a second upload should evict the first
+        // rather than piling up — same rule as customer attachment uploads.
+        Notification::fake();
+        Storage::fake('local');
+
+        $admin = User::factory()->create(['role' => 'admin']);
+        ['orderItem' => $orderItem, 'payment' => $payment] = $this->seedFixtures();
+
+        $this->actingAs($admin, 'admin');
+        $component = Livewire::test(OrderItemsRelationManager::class, [
+            'ownerRecord' => $payment,
+            'pageClass' => ViewPayment::class,
+        ]);
+
+        $component->callTableAction('uploadResult', $orderItem, data: [
+            'result' => UploadedFile::fake()->create('pertama.pdf', 10, 'application/pdf'),
+        ])->assertHasNoTableActionErrors();
+        $firstPath = $orderItem->refresh()->results()->sole()->path;
+        Storage::disk('local')->assertExists($firstPath);
+
+        $component->callTableAction('uploadResult', $orderItem, data: [
+            'result' => UploadedFile::fake()->create('kedua.pdf', 10, 'application/pdf'),
+        ])->assertHasNoTableActionErrors();
+
+        $orderItem->refresh();
+        $this->assertSame(1, $orderItem->results()->count());
+        $this->assertSame('kedua.pdf', $orderItem->results()->sole()->original_name);
+        Storage::disk('local')->assertMissing($firstPath);
     }
 }
