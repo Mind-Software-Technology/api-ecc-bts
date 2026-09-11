@@ -231,6 +231,68 @@ class CartCheckoutTest extends TestCase
         $response->assertStatus(404);
     }
 
+    public function test_customer_can_download_each_of_several_attachments_and_results(): void
+    {
+        Storage::fake('local');
+
+        $user = User::factory()->create();
+        $service = $this->makeService();
+        $this->actingAs($user)->postJson('/api/cart/items', ['service_id' => $service->id, 'qty' => 2]);
+        $order = $this->actingAs($user)->postJson('/api/orders', [
+            'guest_name' => 'Budi',
+            'guest_phone' => '081234567890',
+        ])->json();
+        $item = OrderItem::find($order['items'][0]['id']);
+
+        Storage::disk('local')->put('order-attachments/a1.pdf', 'a1');
+        Storage::disk('local')->put('order-attachments/a2.pdf', 'a2');
+        $attachment1 = $item->attachments()->create(['path' => 'order-attachments/a1.pdf', 'original_name' => 'a1.pdf']);
+        $attachment2 = $item->attachments()->create(['path' => 'order-attachments/a2.pdf', 'original_name' => 'a2.pdf']);
+
+        Storage::disk('local')->put('order-results/r1.pdf', 'r1');
+        Storage::disk('local')->put('order-results/r2.pdf', 'r2');
+        $result1 = $item->results()->create(['path' => 'order-results/r1.pdf', 'original_name' => 'r1.pdf']);
+        $result2 = $item->results()->create(['path' => 'order-results/r2.pdf', 'original_name' => 'r2.pdf']);
+
+        $base = "/api/orders/{$order['order_no']}/items/{$item->id}";
+        $this->actingAs($user)->get("{$base}/attachment/{$attachment1->id}")->assertOk();
+        $this->actingAs($user)->get("{$base}/attachment/{$attachment2->id}")->assertOk();
+        $this->actingAs($user)->get("{$base}/result/{$result1->id}")->assertOk();
+        $this->actingAs($user)->get("{$base}/result/{$result2->id}")->assertOk();
+
+        // Other people's files stay inaccessible, same ownership rule as the order itself.
+        $intruder = User::factory()->create();
+        $this->actingAs($intruder)->get("{$base}/attachment/{$attachment1->id}")->assertStatus(404);
+        $this->actingAs($intruder)->get("{$base}/result/{$result1->id}")->assertStatus(404);
+    }
+
+    public function test_order_list_exposes_every_attachment_and_result_per_item(): void
+    {
+        // GET /api/orders (used by the "riwayat pembayaran" history page) must
+        // eager-load attachments/results — otherwise OrderItemResource falls
+        // back to reporting just the single legacy latest file.
+        $user = User::factory()->create();
+        $service = $this->makeService();
+        $this->actingAs($user)->postJson('/api/cart/items', ['service_id' => $service->id, 'qty' => 2]);
+        $order = $this->actingAs($user)->postJson('/api/orders', [
+            'guest_name' => 'Budi',
+            'guest_phone' => '081234567890',
+        ])->json();
+        $item = OrderItem::find($order['items'][0]['id']);
+
+        $item->attachments()->create(['path' => 'order-attachments/a1.pdf', 'original_name' => 'a1.pdf']);
+        $item->attachments()->create(['path' => 'order-attachments/a2.pdf', 'original_name' => 'a2.pdf']);
+        $item->results()->create(['path' => 'order-results/r1.pdf', 'original_name' => 'r1.pdf']);
+        $item->results()->create(['path' => 'order-results/r2.pdf', 'original_name' => 'r2.pdf']);
+
+        $response = $this->actingAs($user)->getJson('/api/orders');
+
+        $response->assertOk();
+        $items = collect($response->json('data.0.items'));
+        $this->assertCount(2, $items->firstWhere('id', $item->id)['attachments']);
+        $this->assertCount(2, $items->firstWhere('id', $item->id)['results']);
+    }
+
     public function test_attachment_upload_rejected_once_order_is_pending(): void
     {
         Storage::fake('local');

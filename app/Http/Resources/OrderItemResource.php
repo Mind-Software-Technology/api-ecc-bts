@@ -34,6 +34,15 @@ class OrderItemResource extends JsonResource
             'has_result' => $this->result_path !== null,
             'result_original_name' => $this->result_original_name,
             'result_delivered_at' => $this->result_delivered_at?->toIso8601String(),
+            'results' => $this->whenLoaded(
+                'results',
+                fn () => $this->results->map(fn ($r) => [
+                    'id' => $r->id,
+                    'original_name' => $r->original_name,
+                ]),
+                [],
+            ),
+            'results_count' => $this->whenLoaded('results', fn () => $this->results->count(), fn () => $this->result_path !== null ? 1 : 0),
         ];
     }
 }

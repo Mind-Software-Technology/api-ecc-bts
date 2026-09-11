@@ -159,6 +159,31 @@ class QuoteFlowTest extends TestCase
         $this->actingAs($admin, 'admin')->get(route('admin.order-items.result', $item))->assertOk();
     }
 
+    public function test_admin_can_download_each_of_several_attachments_and_results(): void
+    {
+        Storage::fake('local');
+
+        $admin = User::factory()->create(['role' => 'admin']);
+        $user = User::factory()->create();
+        $order = $this->makeOrder($user, 'paid');
+        $item = $order->items->first();
+
+        Storage::disk('local')->put('order-attachments/a1.pdf', 'a1');
+        Storage::disk('local')->put('order-attachments/a2.pdf', 'a2');
+        $attachment1 = $item->attachments()->create(['path' => 'order-attachments/a1.pdf', 'original_name' => 'a1.pdf']);
+        $attachment2 = $item->attachments()->create(['path' => 'order-attachments/a2.pdf', 'original_name' => 'a2.pdf']);
+
+        Storage::disk('local')->put('order-results/r1.pdf', 'r1');
+        Storage::disk('local')->put('order-results/r2.pdf', 'r2');
+        $result1 = $item->results()->create(['path' => 'order-results/r1.pdf', 'original_name' => 'r1.pdf']);
+        $result2 = $item->results()->create(['path' => 'order-results/r2.pdf', 'original_name' => 'r2.pdf']);
+
+        $this->actingAs($admin, 'admin')->get(route('admin.order-item-attachments.download', $attachment1))->assertOk();
+        $this->actingAs($admin, 'admin')->get(route('admin.order-item-attachments.download', $attachment2))->assertOk();
+        $this->actingAs($admin, 'admin')->get(route('admin.order-item-results.download', $result1))->assertOk();
+        $this->actingAs($admin, 'admin')->get(route('admin.order-item-results.download', $result2))->assertOk();
+    }
+
     public function test_non_admin_cannot_download_order_item_files_via_filament_route(): void
     {
         Storage::fake('local');

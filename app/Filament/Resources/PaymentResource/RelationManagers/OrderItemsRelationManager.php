@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\PaymentResource\RelationManagers;
 
+use App\Filament\Concerns\HasOrderItemFileListAction;
 use App\Notifications\OrderResultReady;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -14,6 +15,8 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class OrderItemsRelationManager extends RelationManager
 {
+    use HasOrderItemFileListAction;
+
     protected static string $relationship = 'orderItems';
 
     protected static ?string $title = 'Item Pesanan';
@@ -42,40 +45,27 @@ class OrderItemsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('attachments_count')
                     ->label('Lampiran')
                     ->getStateUsing(fn ($record) => "{$record->attachments()->count()}/{$record->qty}"),
-                Tables\Columns\TextColumn::make('result_delivered_at')
+                Tables\Columns\TextColumn::make('results_count')
                     ->label('Hasil Dikirim')
-                    ->dateTime()
-                    ->placeholder('Belum ada'),
+                    ->getStateUsing(fn ($record) => "{$record->results()->count()}/{$record->qty}"),
             ])
             ->filters([
                 //
             ])
             ->headerActions([])
             ->actions([
-                Tables\Actions\Action::make('downloadAttachment')
-                    ->label('Unduh Lampiran Terbaru')
-                    ->icon('heroicon-o-paper-clip')
-                    ->url(fn ($record) => $record->attachment_path
-                        ? route('admin.order-items.attachment', $record)
-                        : null)
-                    ->openUrlInNewTab()
-                    ->visible(fn ($record) => (bool) $record->attachment_path),
-                Tables\Actions\Action::make('downloadResult')
-                    ->label('Unduh Hasil')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->url(fn ($record) => $record->result_path
-                        ? route('admin.order-items.result', $record)
-                        : null)
-                    ->openUrlInNewTab()
-                    ->visible(fn ($record) => (bool) $record->result_path),
+                static::fileListAction('downloadAttachment', 'Lampiran Pelanggan', 'heroicon-o-paper-clip', 'attachments', 'admin.order-item-attachments.download'),
+                static::fileListAction('downloadResult', 'Hasil Terkirim', 'heroicon-o-arrow-down-tray', 'results', 'admin.order-item-results.download'),
                 Tables\Actions\Action::make('uploadResult')
-                    ->label(fn ($record) => $record->result_path ? 'Perbarui Hasil' : 'Unggah Hasil')
+                    ->label(fn ($record) => $record->results()->exists() ? 'Perbarui Hasil' : 'Unggah Hasil')
                     ->icon('heroicon-o-arrow-up-tray')
                     ->color('primary')
                     ->form([
                         Forms\Components\FileUpload::make('result')
                             ->label('Berkas Hasil')
                             ->storeFiles(false)
+                            ->multiple()
+                            ->maxFiles(fn ($record) => $record->qty)
                             ->acceptedFileTypes([
                                 'application/pdf',
                                 'application/msword',
@@ -87,18 +77,36 @@ class OrderItemsRelationManager extends RelationManager
                             ->required(),
                     ])
                     ->action(function (array $data, $record): void {
+                        $isRevision = $record->results()->exists();
+
+                        // Same qty-capped, replace-oldest rule as customer attachment
+                        // uploads (OrderController::uploadAttachment) — an item ordered
+                        // with qty > 1 can carry up to `qty` results, one per unit.
+                        // ->multiple() means $data['result'] can hold several files at
+                        // once (e.g. all 3 for a qty=3 item in one submission), so the
+                        // cap is enforced per file as each one is added, not just once.
                         /** @var TemporaryUploadedFile $file */
-                        $file = $data['result'];
+                        foreach ($data['result'] as $file) {
+                            if ($record->results()->count() >= $record->qty) {
+                                $oldest = $record->results()->oldest('id')->first();
+                                Storage::disk('local')->delete($oldest->path);
+                                $oldest->delete();
+                            }
 
-                        $isRevision = $record->result_path !== null;
-
-                        if ($isRevision) {
-                            Storage::disk('local')->delete($record->result_path);
+                            $record->results()->create([
+                                'path' => $file->store('order-results', 'local'),
+                                'original_name' => $file->getClientOriginalName(),
+                            ]);
                         }
 
+                        // Legacy single-file columns mirror the most recently uploaded
+                        // result, same convention as attachment_path/attachment_original_name
+                        // on OrderController::uploadAttachment — anything still reading
+                        // these directly (customer API, notification mail) keeps working.
+                        $latest = $record->results()->latest('id')->first();
                         $record->update([
-                            'result_path' => $file->store('order-results', 'local'),
-                            'result_original_name' => $file->getClientOriginalName(),
+                            'result_path' => $latest->path,
+                            'result_original_name' => $latest->original_name,
                             'result_delivered_at' => now(),
                         ]);
 

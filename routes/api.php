@@ -56,7 +56,11 @@ Route::get('orders', [OrderController::class, 'index'])->middleware('throttle:20
 Route::get('orders/{order_no}/items/{item}/attachment', [OrderController::class, 'downloadAttachment']);
 Route::post('orders/{order_no}/items/{item}/attachment', [OrderController::class, 'uploadAttachment']);
 Route::delete('orders/{order_no}/items/{item}/attachment/{attachment}', [OrderController::class, 'deleteAttachment']);
+// Per-file downloads — an order item can carry more than one attachment/result
+// (up to its qty), the two routes above/below only ever serve the single latest one.
+Route::get('orders/{order_no}/items/{item}/attachment/{attachment}', [OrderController::class, 'downloadAttachmentFile']);
 Route::get('orders/{order_no}/items/{item}/result', [OrderController::class, 'downloadResult']);
+Route::get('orders/{order_no}/items/{item}/result/{result}', [OrderController::class, 'downloadResultFile']);
 Route::post('orders/{order_no}/testimonial', [OrderController::class, 'submitTestimonial']);
 Route::post('orders/{order_no}/accept-quote', [OrderController::class, 'acceptQuote']);
 Route::post('orders/{order_no}/decline', [OrderController::class, 'decline']);
